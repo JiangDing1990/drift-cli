@@ -5,7 +5,7 @@ Thank you for your interest in contributing! This document covers how to get sta
 ## Development Setup
 
 ```bash
-git clone https://github.com/jiangding/drift-cli.git
+git clone https://github.com/JiangDing1990/drift-cli.git
 cd drift-cli
 pnpm install
 pnpm run build
@@ -66,7 +66,7 @@ test: add edge case coverage for extractor
 
 ## Reporting Bugs
 
-Please open an issue at [github.com/jiangding/drift-cli/issues](https://github.com/jiangding/drift-cli/issues) with:
+Please open an issue at [github.com/JiangDing1990/drift-cli/issues](https://github.com/JiangDing1990/drift-cli/issues) with:
 
 - drift-cli version (`drift --version`)
 - Node.js version (`node --version`)
