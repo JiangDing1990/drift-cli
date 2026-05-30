@@ -1,6 +1,8 @@
+**English** | [简体中文](./README.zh-CN.md)
+
 # drift-cli
 
-> 在 Claude Design 与 Claude Code 之间建立双向同步通道的命令行工具
+> A CLI tool for bidirectional sync between Claude Design and Claude Code
 
 [![npm version](https://img.shields.io/npm/v/drift-cli)](https://www.npmjs.com/package/drift-cli)
 [![Node.js >= 18](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](https://nodejs.org)
@@ -8,33 +10,33 @@
 
 ---
 
-## 问题背景
+## The Problem
 
-使用 **Claude Design** 做高保真原型、**Claude Code** 实现生产代码时，两侧是同一产品意图的不同代码形态，但存放在独立目录中。任意一侧迭代后，另一侧无法感知——随时间累积形成**双向漂移（drift）**。
+When building products with **Claude Design** (high-fidelity JSX prototypes) and **Claude Code** (production implementation), both sides represent the same product intent in different code forms — but live in separate directories. Whenever one side evolves, the other side has no way to know. Over time, this creates **bidirectional drift**.
 
-`drift-cli` 追踪两侧的组件级差异，生成上下文完整的同步 Prompt，让你直接粘贴给 Claude Code 或 Claude Design 完成翻译，**不直接修改任何文件**。
+`drift-cli` tracks component-level differences between both sides, generates context-rich sync prompts, and lets you paste them directly into Claude Code or Claude Design to perform the translation. **It never modifies your files directly.**
 
 ```
-Claude Design (JSX 原型)           Claude Code (生产代码)
-         │                                  │
-         └──────────── drift-cli ───────────┘
-              追踪变更 · 生成 Prompt · 更新基线
+Claude Design (JSX prototypes)        Claude Code (production code)
+         │                                       │
+         └──────────────── drift-cli ────────────┘
+                 track · generate prompts · update baseline
 ```
 
 ---
 
-## 核心特性
+## Features
 
-- 🔍 **组件级追踪** — 从设计稿 JSX 文件中提取独立组件，与多个代码文件建立 1:N / N:1 映射
-- 📸 **自有快照系统** — 三方版本比较（baseline vs design-current vs code-current），精确检测冲突
-- 🤖 **AI 语义分析** — 调用 Claude API 分析变更意图（功能新增 / 样式调整 / 交互变化…）
-- 📋 **双向 Prompt 生成** — 生成自包含的 Markdown prompt，含完整上下文，直接发给 Claude
-- 🛠 **技术栈无关** — 核心同步逻辑不依赖任何框架；Next.js、Vue、Svelte 均适用
-- 🔎 **技术栈自动检测** — `drift init` 时自动识别框架、语言、样式方案，写入 prompt 转换指引
+- 🔍 **Component-level tracking** — Extracts individual components from design JSX files and maps them to code files with 1:N / N:1 relationships
+- 📸 **Own snapshot system** — Three-way version comparison (baseline vs design-current vs code-current) for accurate conflict detection
+- 🤖 **AI semantic analysis** — Calls Claude API to classify change intent (feature-add / style-change / interaction-change…)
+- 📋 **Bidirectional prompt generation** — Generates self-contained Markdown prompts with full context, ready to paste into Claude
+- 🛠 **Framework-agnostic** — Core sync logic is independent of any framework; works with Next.js, Vue, Svelte, and more
+- 🔎 **Auto stack detection** — `drift init` detects framework, language, and styling at setup time, injecting framework-specific conversion hints into prompts
 
 ---
 
-## 安装
+## Installation
 
 ```bash
 # npm
@@ -43,189 +45,189 @@ npm install -g drift-cli
 # pnpm
 pnpm add -g drift-cli
 
-# 或在项目中本地安装
+# or install locally in a project
 npm install --save-dev drift-cli
 ```
 
-**依赖环境：** Node.js >= 18
+**Requires:** Node.js >= 18
 
 ---
 
-## 快速上手
+## Quick Start
 
-### 1. 初始化
+### 1. Initialize
 
 ```bash
 drift init --design ~/Downloads/my-design --code ~/my-project
 ```
 
-- 创建 `.drift/` 目录（放在你运行命令的工作目录，独立于两个项目）
-- 自动检测代码侧技术栈，交互式确认
-- 提取设计稿组件，扫描代码文件，建立初始快照
+- Creates a `.drift/` directory in your current working directory (independent of both projects)
+- Auto-detects the code-side tech stack with interactive confirmation
+- Extracts design components, scans code files, and takes an initial snapshot
 
-### 2. 建立组件映射
+### 2. Map components to code files
 
 ```bash
-drift map auto               # 自动映射（文件名 + 导出名匹配）
-drift map                    # 查看所有映射关系
-drift map set <id> <path>    # 手动指定映射
+drift map auto               # Auto-map by filename + export name matching
+drift map                    # View all mappings
+drift map set <id> <path>    # Manually set a mapping
 ```
 
-### 3. 检测变更
+### 3. Detect changes
 
 ```bash
-drift diff                   # 扫描双目录，含 AI 语义分析
-drift diff --no-ai           # 仅展示结构 diff，跳过 AI
-drift diff --side design     # 只检测设计侧变更
+drift diff                   # Scan both sides with AI semantic analysis
+drift diff --no-ai           # Structural diff only, skip AI
+drift diff --side design     # Only scan the design side
 ```
 
-### 4. 生成同步 Prompt
+### 4. Generate a sync prompt
 
 ```bash
-drift sync --to code         # 将设计稿变更同步到代码（复制到剪贴板）
-drift sync --to design       # 将代码变更同步到设计稿
-drift sync --to code --out ./prompts/    # 写入文件
-drift sync --to code --component TopNav # 仅指定组件
+drift sync --to code         # Sync design changes to code (copy to clipboard)
+drift sync --to design       # Sync code changes to design
+drift sync --to code --out ./prompts/    # Write to files instead
+drift sync --to code --component TopNav # Single component only
 ```
 
-### 5. 粘贴 Prompt，让 Claude 执行
+### 5. Paste the prompt and let Claude do the work
 
-将剪贴板内容粘贴到 Claude Code 或 Claude Design 对话框，等待 AI 完成修改。
+Paste the clipboard content into a Claude Code or Claude Design conversation and wait for the AI to make the changes.
 
-### 6. 更新基线，闭合循环
+### 6. Update the baseline to close the loop
 
 ```bash
-drift snapshot --after-sync  # 只更新本次同步的组件
-drift snapshot               # 更新所有组件基线
+drift snapshot --after-sync  # Only update components synced in this run
+drift snapshot               # Update all component baselines
 ```
 
 ---
 
-## 完整工作流
+## Full Workflows
 
-### Design → Code（最常见场景）
-
-```
-1. 在 Claude Design 更新设计稿，重新导出到本地目录
-2. drift diff                        ← 检测变更，AI 分析意图
-3. drift sync --to code --copy       ← 生成 Prompt，复制到剪贴板
-4. 粘贴给 Claude Code 对话框
-5. Claude Code 修改本地代码文件
-6. 确认结果正确
-7. drift snapshot --after-sync       ← 更新基线，状态变为 synced
-```
-
-### Code → Design（反向场景）
+### Design → Code (most common)
 
 ```
-1. 修改代码文件
-2. drift diff --side code            ← 检测代码侧变更
-3. drift sync --to design --copy     ← 生成含反向转换指引的 Prompt
-4. 粘贴给 Claude Design 对话框
-5. Claude Design 更新并重新导出设计稿
-6. drift snapshot --after-sync       ← 更新基线
+1. Update the design in Claude Design and re-export to your local directory
+2. drift diff                        ← detect changes, AI classifies intent
+3. drift sync --to code --copy       ← generate prompt, copy to clipboard
+4. Paste into a Claude Code conversation
+5. Claude Code edits local code files
+6. Review and confirm the result looks correct
+7. drift snapshot --after-sync       ← lock baseline, status → synced
 ```
 
-### 冲突解决（两侧同时修改）
+### Code → Design (reverse)
 
 ```
-drift diff                           ← 显示 "⚠ CONFLICT"
-drift sync --to code --component TopNav   ← 生成合并 Prompt（含两侧 diff）
-# 让 Claude Code 手动合并两个变更
+1. Edit code files
+2. drift diff --side code            ← detect code-side changes
+3. drift sync --to design --copy     ← generate reverse-direction prompt
+4. Paste into a Claude Design conversation
+5. Claude Design updates and re-exports the design
+6. drift snapshot --after-sync       ← lock baseline
+```
+
+### Conflict resolution (both sides changed)
+
+```
+drift diff                                   ← shows "⚠ CONFLICT"
+drift sync --to code --component TopNav      ← generates merge prompt with both diffs
+# Let Claude Code merge both sets of changes
 drift snapshot --after-sync
 ```
 
 ---
 
-## 命令参考
+## Command Reference
 
 ### `drift init`
 
-初始化 drift-cli。
+Initialize drift-cli.
 
 ```
 Options:
-  --design <path>   设计稿根目录（必填）
-  --code <path>     代码项目根目录（必填）
-  --force           强制重新初始化（覆盖现有配置）
-  --skip-detect     跳过技术栈自动检测
+  --design <path>   Design root directory (required)
+  --code <path>     Code project root directory (required)
+  --force           Force re-initialization (overwrites existing config)
+  --skip-detect     Skip tech stack auto-detection
 ```
 
 ### `drift map`
 
-管理组件映射关系。
+Manage component-to-code mappings.
 
 ```
-drift map                          # 查看所有映射（等同于 drift map list）
-drift map list [--unmapped]        # 仅显示未映射的组件
-drift map auto                     # 运行自动映射策略
-drift map set <id> <path>          # 手动设置映射
-drift map unset <id>               # 移除映射
+drift map                          # View all mappings (alias for drift map list)
+drift map list [--unmapped]        # Show only unmapped components
+drift map auto                     # Run auto-mapping strategies
+drift map set <id> <path>          # Manually set a mapping
+drift map unset <id>               # Remove a mapping
 ```
 
 ### `drift status`
 
-查看所有组件的同步状态总览。
+View a summary of all component sync states.
 
 ```
 Options:
-  --refresh           重新扫描文件系统
-  --filter <status>   按状态过滤：synced | design-ahead | code-ahead |
+  --refresh           Re-scan the filesystem for latest hashes
+  --filter <status>   Filter by state: synced | design-ahead | code-ahead |
                       both-changed | never-synced | new-design | new-code
 ```
 
 ### `drift diff`
 
-检测双目录变更，展示 diff 并进行 AI 语义分析。分析结果写入同步队列。
+Scan both directories for changes, display diffs, and run AI semantic analysis. Results are written to the sync queue.
 
 ```
 Options:
-  --no-ai             跳过 AI 分析（无需 API Key）
-  --side <side>       仅检测某侧：design | code
-  --component <name>  仅检测指定组件
+  --no-ai             Skip AI analysis (no API key needed)
+  --side <side>       Only scan one side: design | code
+  --component <name>  Only scan a specific component
 ```
 
-> **AI 分析** 需要设置环境变量 `ANTHROPIC_API_KEY`。未设置时自动降级为纯结构 diff。
+> **AI analysis** requires the `ANTHROPIC_API_KEY` environment variable. Without it, the tool gracefully falls back to structural diff only.
 
 ### `drift sync`
 
-读取同步队列，生成包含完整上下文的双向同步 Prompt。
+Read the sync queue and generate bidirectional sync prompts with full context.
 
 ```
 Options:
-  --to <target>        同步方向：code（设计→代码）| design（代码→设计）（必填）
-  --copy               将 Prompt 复制到剪贴板（默认）
-  --out <dir>          写入指定目录（每组件一个 .md 文件）
-  --component <name>   仅生成指定组件的 Prompt
-  --no-ai              跳过 AI 语义分析，使用通用转换指引
+  --to <target>        Sync direction: code (design→code) | design (code→design) (required)
+  --copy               Copy prompt to clipboard (default)
+  --out <dir>          Write to a directory (one .md file per component)
+  --component <name>   Generate prompt for a specific component only
+  --no-ai              Skip AI analysis, use generic conversion hints
 ```
 
 ### `drift snapshot`
 
-将当前双侧文件状态标记为新基线。**同步循环必须以此命令结束。**
+Mark the current state of both sides as the new baseline. **Every sync loop must end with this command.**
 
 ```
 Options:
-  --component <name>  仅更新指定组件的基线
-  --after-sync        仅更新 in-progress 状态的组件（推荐与 drift sync 配合使用）
+  --component <name>  Only update the baseline for a specific component
+  --after-sync        Only update in-progress components (recommended after drift sync)
 ```
 
 ### `drift log`
 
-查看同步操作历史与队列状态。
+View sync history and queue state.
 
 ```
 Options:
-  --component <name>  仅显示指定组件的记录
-  --last <n>          仅显示最新 N 条
-  --status <status>   按状态过滤：pending | in-progress | done | skipped | conflict
+  --component <name>  Show records for a specific component only
+  --last <n>          Show only the most recent N entries
+  --status <status>   Filter by status: pending | in-progress | done | skipped | conflict
 ```
 
 ---
 
-## 配置文件
+## Configuration
 
-`drift init` 在 `.drift/` 目录下生成 `drift.config.json`，可以手动编辑：
+`drift init` generates `drift.config.json` inside the `.drift/` directory. You can edit it manually:
 
 ```jsonc
 {
@@ -244,28 +246,28 @@ Options:
   },
 
   "ai": {
-    "model": "claude-sonnet-4-20250514",   // 分析使用的模型
-    "batchSize": 5,                         // 每批分析的组件数
-    "maxConcurrency": 3                     // 并发 API 请求数
+    "model": "claude-sonnet-4-20250514",   // model used for analysis
+    "batchSize": 5,                         // components analyzed per batch
+    "maxConcurrency": 3                     // concurrent API requests
   },
 
   "project": {
     "stack": "Next.js 15 + TypeScript + Tailwind CSS",
     "conventions": [
-      "组件使用 CSS Modules，文件名 *.module.scss",
-      "路由使用 App Router，页面放在 src/app/ 下"
+      "Components use CSS Modules with *.module.scss file names",
+      "Routing uses App Router; pages live under src/app/"
     ],
-    // 由 drift init 自动生成，也可手动编辑
+    // Auto-generated by drift init; can also be edited manually
     "designToCodeHints": [
-      "将内联样式转换为 Tailwind 类名",
-      "添加 TypeScript 类型注解",
-      "保留代码侧现有的工程结构和命名规范"
+      "Convert inline styles to Tailwind class names",
+      "Add TypeScript type annotations",
+      "Preserve existing project structure and naming conventions"
     ],
     "codeToDesignHints": [
-      "设计稿使用浏览器原生 JSX，无需 import/export",
-      "将 Tailwind 类名转换回内联样式 + CSS 变量",
-      "移除 TypeScript 类型注解",
-      "用静态 mock 数据替代后端 API 调用"
+      "Design files use browser-native JSX — no import/export needed",
+      "Convert Tailwind class names back to inline styles or CSS variables",
+      "Remove TypeScript type annotations",
+      "Replace API calls and hooks with hardcoded mock data"
     ]
   }
 }
@@ -273,87 +275,87 @@ Options:
 
 ---
 
-## 同步状态说明
+## Sync States
 
-| 状态 | 含义 | 建议操作 |
+| State | Meaning | Recommended action |
 |---|---|---|
-| `synced` | 两侧均与基线一致 | 无需操作 |
-| `design-ahead` | 设计稿更新，代码未同步 | `drift sync --to code` |
-| `code-ahead` | 代码更新，设计稿未同步 | `drift sync --to design` |
-| `both-changed` | 两侧均有变更（冲突） | `drift sync --to code`（生成合并 Prompt） |
-| `never-synced` | 有映射但从未同步 | `drift snapshot` 建立初始基线 |
-| `new-design` | 设计稿新增组件，无代码映射 | `drift map set` 建立映射 |
-| `new-code` | 代码新增文件，无设计稿映射 | `drift map set` 建立映射（可选） |
+| `synced` | Both sides match the baseline | Nothing to do |
+| `design-ahead` | Design updated, code not yet synced | `drift sync --to code` |
+| `code-ahead` | Code updated, design not yet synced | `drift sync --to design` |
+| `both-changed` | Both sides changed (conflict) | `drift sync --to code` (generates merge prompt) |
+| `never-synced` | Mapped but never synced | `drift snapshot` to establish initial baseline |
+| `new-design` | New design component, no code mapping | `drift map set` to create mapping |
+| `new-code` | New code file, no design mapping | `drift map set` (optional) |
 
 ---
 
-## AI 分析
+## AI Analysis
 
-`drift diff` 和 `drift sync` 可调用 Claude API 对变更进行语义分析：
+`drift diff` and `drift sync` can call the Claude API to analyze changes semantically:
 
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-..."
 drift diff
 ```
 
-分析结果包含：
+Analysis output includes:
 
-- **变更类型（intent）**：`feature-add` / `style-change` / `interaction-change` / `layout-change` / `refactor` / `props-change` / `logic-change` / `content-change`
-- **影响范围（impact）**：`high` / `medium` / `low`
-- **一句话摘要**
-- **同步建议（syncGuide）**：具体操作步骤
+- **Intent**: `feature-add` / `style-change` / `interaction-change` / `layout-change` / `refactor` / `props-change` / `logic-change` / `content-change`
+- **Impact**: `high` / `medium` / `low`
+- **One-line summary**
+- **Sync guide**: concrete step-by-step instructions
 
-未设置 API Key 时，工具依然完整工作——只是 AI 分析部分降级为通用结构 diff 和通用转换指引。
+Without an API key, the tool works fully — AI analysis simply degrades to generic structural diff and generic conversion hints.
 
 ---
 
-## `.drift/` 目录结构
+## `.drift/` Directory Structure
 
 ```
 .drift/
-├── drift.config.json      # 配置（设计/代码路径、AI 设置、技术栈信息）
-├── registry.json          # 组件注册表（所有提取的组件及其映射关系）
-├── queue.json             # 同步队列（pending / in-progress / done / skipped）
+├── drift.config.json      # Config (design/code paths, AI settings, stack info)
+├── registry.json          # Component registry (extracted components + mappings)
+├── queue.json             # Sync queue (pending / in-progress / done / skipped)
 ├── snapshots/
-│   ├── latest.json        # 最新快照（diff 的基准）
-│   └── snap_*.json        # 历史快照
+│   ├── latest.json        # Latest snapshot (baseline for diff)
+│   └── snap_*.json        # Snapshot history
 └── history/
-    └── *.md               # 生成的 Prompt 历史记录
+    └── *.md               # Generated prompt history
 ```
 
-`.drift/` 目录与两个项目均独立，不污染代码的 git 历史，也不会被 Claude Design 的导出覆盖。
+The `.drift/` directory is independent of both projects — it won't pollute your code's git history and won't be overwritten by Claude Design exports.
 
 ---
 
-## 技术栈检测
+## Stack Detection
 
-`drift init` 自动检测代码侧技术栈，支持：
+`drift init` auto-detects the code-side tech stack. Supported dimensions:
 
-| 维度 | 支持 |
+| Dimension | Supported |
 |---|---|
-| 框架 | Next.js · Nuxt · SvelteKit · Vite+React · Vue · Angular |
-| 语言 | TypeScript · JavaScript |
-| 样式 | Tailwind CSS · CSS Modules · styled-components · Emotion · SCSS |
-| 状态管理 | Zustand · Redux · Jotai · Pinia · TanStack Query · MobX |
-| 路由 | App Router · Pages Router · React Router · Vue Router |
-| 组件模式 | function 声明 · 箭头函数 |
+| Framework | Next.js · Nuxt · SvelteKit · Vite+React · Vue · Angular |
+| Language | TypeScript · JavaScript |
+| Styling | Tailwind CSS · CSS Modules · styled-components · Emotion · SCSS |
+| State management | Zustand · Redux · Jotai · Pinia · TanStack Query · MobX |
+| Routing | App Router · Pages Router · React Router · Vue Router |
+| Component pattern | function declaration · arrow function |
 
-检测结果写入 `drift.config.json`，可以手动修改。所有检测维度均可在交互确认时修正。
+Detection results are stored in `drift.config.json`. All dimensions can be corrected during the interactive confirmation step in `drift init`.
 
 ---
 
-## 开发
+## Development
 
 ```bash
 git clone https://github.com/your-org/drift-cli
 cd drift-cli
 pnpm install
 
-pnpm run build      # 构建
-pnpm run dev        # 监听模式
-pnpm run test       # 运行测试（watch 模式）
-pnpm run test:run   # 单次运行所有测试
-pnpm run lint       # TypeScript 类型检查
+pnpm run build      # build
+pnpm run dev        # watch mode
+pnpm run test       # run tests (watch mode)
+pnpm run test:run   # run all tests once
+pnpm run lint       # TypeScript type check
 ```
 
 ---
