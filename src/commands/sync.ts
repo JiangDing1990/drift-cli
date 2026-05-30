@@ -87,25 +87,32 @@ function makeQueueId(componentId: string, direction: SyncDirection): string {
 // ── Load stack info ──────────────────────────────────────────────────────────
 
 /**
- * Build a StackInfo from what's available in config.project.
- * The stack-detector runs during `drift init` and writes stack hints into config.
- * If config has no stack info, return null — prompt-builder has generic fallbacks.
+ * Load the persisted StackInfo from config.project.
+ *
+ * `drift init` runs StackDetector and writes:
+ *   - `project.stack`           — human-readable summary
+ *   - `project.designToCodeHints` — framework-specific hints for design→code prompts
+ *   - `project.codeToDesignHints` — framework-specific hints for code→design prompts
  *
  * We intentionally do NOT re-run StackDetector here (it's a slow I/O pass).
- * Users can update tech stack via `drift config stack` (Phase 4).
+ * Returns null if no project info is configured, so prompt-builder falls back
+ * to its generic conversion hints.
  */
 function tryLoadStackInfo(config: DriftConfig): StackInfo | null {
-  if (!config.project?.stack && !config.project?.conventions?.length) return null;
+  const project = config.project;
+  if (!project) return null;
 
-  // Attempt to load persisted StackInfo from config if stack-detector wrote it.
-  // For now we reconstruct a minimal StackInfo from the project section.
-  // Full detector output will be persisted in Phase 4 (drift config stack).
-  const stackInfo: StackInfo = {
-    designToCodeHints: [],
-    codeToDesignHints: [],
+  const hasHints =
+    (project.designToCodeHints?.length ?? 0) > 0 ||
+    (project.codeToDesignHints?.length ?? 0) > 0;
+
+  // If we have no hints AND no stack description, nothing useful to pass along
+  if (!hasHints && !project.stack && !project.conventions?.length) return null;
+
+  return {
+    designToCodeHints: project.designToCodeHints ?? [],
+    codeToDesignHints: project.codeToDesignHints ?? [],
   };
-
-  return stackInfo;
 }
 
 // ── Main command ─────────────────────────────────────────────────────────────

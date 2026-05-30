@@ -149,7 +149,7 @@ export async function detectStack(codeRoot: string): Promise<StackInfo> {
   return info;
 }
 
-function generateDesignToCodeHints(info: StackInfo): string[] {
+export function generateDesignToCodeHints(info: StackInfo): string[] {
   const hints: string[] = [];
 
   if (info.styling?.value === 'Tailwind CSS') {
@@ -181,7 +181,7 @@ function generateDesignToCodeHints(info: StackInfo): string[] {
   return hints;
 }
 
-function generateCodeToDesignHints(info: StackInfo): string[] {
+export function generateCodeToDesignHints(info: StackInfo): string[] {
   const hints: string[] = [
     '设计稿使用浏览器原生 JSX（Babel standalone 编译），无需 import/export',
     '所有组件使用全局 function 声明',

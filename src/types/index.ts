@@ -25,6 +25,13 @@ export interface DriftConfig {
     stack?: string;
     conventions?: string[];
     designNotes?: string[];
+    /**
+     * Persisted output of StackDetector — framework-specific conversion hints
+     * written by `drift init` and consumed by `drift sync` to populate prompts.
+     * May also be edited directly in drift.config.json.
+     */
+    designToCodeHints?: string[];
+    codeToDesignHints?: string[];
   };
 }
 

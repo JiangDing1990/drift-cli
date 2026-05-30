@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, rename } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import type {
   DriftConfig,
@@ -35,11 +35,22 @@ export class StateStore {
   // ── Atomic JSON read/write ──
 
   private async readJson<T>(filePath: string): Promise<T | null> {
+    let raw: string;
     try {
-      const raw = await readFile(filePath, 'utf8');
+      raw = await readFile(filePath, 'utf8');
+    } catch (err: unknown) {
+      // File not found is expected (state not yet initialised) — return null.
+      // Any other I/O error (permissions, etc.) should bubble up.
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw err;
+    }
+    try {
       return JSON.parse(raw) as T;
     } catch {
-      return null;
+      throw new Error(
+        `${filePath} 内容无效（JSON 解析失败）。` +
+        `如文件已损坏，请删除 .drift/ 目录后重新运行 drift init。`,
+      );
     }
   }
 
@@ -48,7 +59,6 @@ export class StateStore {
     await mkdir(dir, { recursive: true });
     const tmp = `${filePath}.tmp`;
     await writeFile(tmp, JSON.stringify(data, null, 2), 'utf8');
-    const { rename } = await import('node:fs/promises');
     await rename(tmp, filePath);
   }
 

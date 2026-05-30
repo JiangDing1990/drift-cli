@@ -4,7 +4,7 @@ import inquirer from 'inquirer';
 import { StateStore } from '../state/store.js';
 import { scan } from '../core/scanner.js';
 import { extractAll } from '../core/extractor.js';
-import { detectStack } from '../core/stack-detector.js';
+import { detectStack, generateDesignToCodeHints, generateCodeToDesignHints } from '../core/stack-detector.js';
 import { resolvePath } from '../utils/path.js';
 import { log } from '../utils/logger.js';
 import { spinner, printExtractionSummary, printScanSummary, printInitComplete } from '../output/reporter.js';
@@ -96,6 +96,12 @@ async function confirmStack(stackInfo: StackInfo): Promise<{ confirmed: StackInf
         (confirmed as any)[key] = undefined;
       }
     }
+  }
+
+  // Regenerate hints to reflect any user-edited fields (e.g., Emotion → Tailwind CSS)
+  if (action === 'edit' || action === 'manual') {
+    confirmed.designToCodeHints = generateDesignToCodeHints(confirmed);
+    confirmed.codeToDesignHints = generateCodeToDesignHints(confirmed);
   }
 
   // collect project conventions
@@ -211,10 +217,23 @@ export async function initCommand(options: InitOptions): Promise<void> {
     stackInfo.styling?.value,
   ].filter(Boolean).join(' + ');
 
-  if (stackSummary || conventions.length > 0) {
+  const hasProjectInfo =
+    stackSummary ||
+    conventions.length > 0 ||
+    stackInfo.designToCodeHints.length > 0 ||
+    stackInfo.codeToDesignHints.length > 0;
+
+  if (hasProjectInfo) {
     config.project = {};
     if (stackSummary) config.project.stack = stackSummary;
     if (conventions.length > 0) config.project.conventions = conventions;
+    // Persist framework-specific hints so `drift sync` can use them without re-running detectStack
+    if (stackInfo.designToCodeHints.length > 0) {
+      config.project.designToCodeHints = stackInfo.designToCodeHints;
+    }
+    if (stackInfo.codeToDesignHints.length > 0) {
+      config.project.codeToDesignHints = stackInfo.codeToDesignHints;
+    }
   }
 
   await store.saveConfig(config);
