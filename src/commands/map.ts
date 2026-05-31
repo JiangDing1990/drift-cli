@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import chalk from 'chalk';
 import Table from 'cli-table3';
 import inquirer from 'inquirer';
-import { StateStore } from '../state/store.js';
+import { resolveStore } from '../state/resolve-store.js';
 import { autoMap } from '../core/mapper.js';
 import { computeStatus } from '../core/differ.js';
 import { hashMultiple } from '../utils/hash.js';
@@ -37,14 +37,8 @@ function allKnownCodeFiles(registry: ComponentRegistry): string[] {
 
 // ── List ─────────────────────────────────────────────────────────────────────
 
-export async function mapListCommand(opts: { unmapped?: boolean }): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+export async function mapListCommand(opts: { unmapped?: boolean; workspace?: string }): Promise<void> {
+  const { store } = await resolveStore(opts.workspace);
 
   const registry = await store.getRegistry();
   if (!registry) {
@@ -104,14 +98,8 @@ export async function mapListCommand(opts: { unmapped?: boolean }): Promise<void
 
 // ── Auto mapping ─────────────────────────────────────────────────────────────
 
-export async function mapAutoCommand(): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+export async function mapAutoCommand(opts: { workspace?: string } = {}): Promise<void> {
+  const { store } = await resolveStore(opts.workspace);
 
   const [config, registry] = await Promise.all([
     store.getConfig(),
@@ -231,14 +219,8 @@ export async function mapAutoCommand(): Promise<void> {
 
 // ── Set mapping ──────────────────────────────────────────────────────────────
 
-export async function mapSetCommand(componentId: string, codePath: string): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+export async function mapSetCommand(componentId: string, codePath: string, opts: { workspace?: string } = {}): Promise<void> {
+  const { store } = await resolveStore(opts.workspace);
 
   const [config, registry] = await Promise.all([store.getConfig(), store.getRegistry()]);
   if (!config || !registry) {
@@ -298,14 +280,8 @@ export async function mapSetCommand(componentId: string, codePath: string): Prom
 
 // ── Unset mapping ────────────────────────────────────────────────────────────
 
-export async function mapUnsetCommand(componentId: string): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+export async function mapUnsetCommand(componentId: string, opts: { workspace?: string } = {}): Promise<void> {
+  const { store } = await resolveStore(opts.workspace);
 
   const registry = await store.getRegistry();
   if (!registry) {

@@ -1,7 +1,6 @@
-import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { StateStore } from '../state/store.js';
 import { computeAllStatuses, refreshHashes } from '../core/differ.js';
+import { resolveStore } from '../state/resolve-store.js';
 import { log } from '../utils/logger.js';
 import { spinner, statusIcon } from '../output/reporter.js';
 import type { ComponentEntry, ComponentSyncStatus, DiffResult } from '../types/index.js';
@@ -9,6 +8,7 @@ import type { ComponentEntry, ComponentSyncStatus, DiffResult } from '../types/i
 interface StatusOptions {
   filter?: ComponentSyncStatus;
   refresh?: boolean;
+  workspace?: string;
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
@@ -94,13 +94,7 @@ function printChangedSection(
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function statusCommand(opts: StatusOptions = {}): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+  const { store, workspaceName } = await resolveStore(opts.workspace);
 
   const [config, registry, snapshot] = await Promise.all([
     store.getConfig(),

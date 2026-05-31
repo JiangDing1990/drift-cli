@@ -24,8 +24,10 @@ src/
 │   ├── reporter.ts    Terminal UI (chalk, ora, cli-table3)
 │   └── prompt-builder.ts  Markdown prompt generation for both sync directions
 ├── state/
-│   └── store.ts       .codeferry/ directory management — ALL file I/O goes here
-│                      Uses atomic write pattern: write to .tmp → fs.rename()
+│   ├── store.ts           .codeferry/ directory management — ALL file I/O goes here
+│   │                      Uses atomic write pattern: write to .tmp → fs.rename()
+│   ├── workspace.ts       WorkspaceManager — workspace lifecycle (create/list/remove/migrate)
+│   └── resolve-store.ts   Shared helper: resolves active workspace → StateStore
 ├── types/index.ts     All shared TypeScript types (single source of truth)
 └── utils/             hash.ts · path.ts · logger.ts
 tests/               Vitest unit tests (7 files, 68 tests)
@@ -54,8 +56,8 @@ codeferry --version      # verify link works
 
 ## Core Architectural Rules
 
-### 1. StateStore is the only I/O layer
-All reads/writes to `.codeferry/` must go through `StateStore` (`src/state/store.ts`). Never call `fs.*` directly in command files or core modules.
+### 1. StateStore is the only workspace-level I/O layer
+All reads/writes to a workspace's data (config, registry, queue, snapshots) must go through `StateStore` (`src/state/store.ts`). Global state (state.json) is managed by `WorkspaceManager`. Command files must use `resolveStore()` rather than constructing `StateStore` directly.
 
 ### 2. Atomic writes — always
 `writeJson` uses `tmp → rename()`. Never write config/registry/queue directly with `writeFile` (data corruption on crash).
@@ -80,7 +82,11 @@ both changed                   → 'both-changed' (conflict)
 - Read back from config in `codeferry sync` via `tryLoadStackInfo()`
 - Regenerated if user edits stack info in the init confirmation flow
 
-### 7. Queue state machine
+### 7. Workspace resolution order
+`-w` flag → `CODEFERRY_WORKSPACE` env → `.codeferry/state.json` → `"default"` fallback.
+`WorkspaceManager.migrateIfNeeded()` is idempotent; call it at the start of any command that touches the workspace layer. Legacy flat `.codeferry/codeferry.config.json` is the trigger; `state.json` presence marks migration complete.
+
+### 8. Queue state machine
 `pending → in-progress → done/skipped`
 - `codeferry diff` writes `pending` items
 - `codeferry sync` updates them to `in-progress`
@@ -94,7 +100,7 @@ both changed                   → 'both-changed' (conflict)
 |---|---|---|
 | Auto-mapper scores API routers and page components equally | Medium | v0.6.0: smarter path scoring for App Router `(route-groups)` |
 | `codeferry diff` shows full component vs empty baseline (not a real diff) | Medium | v0.7.0: store baseline content in snapshots |
-| Version hardcoded in `src/index.ts` as `'0.4.0'` | Low | v0.5.0: read from package.json via `createRequire` |
+| Version hardcoded in `src/index.ts` as `'0.5.0'` | Low | v0.6.0: read from package.json via `createRequire` |
 | `pnpm-workspace.yaml` uses legacy `allowBuilds` syntax | Low | v0.5.0: migrate to `onlyBuiltDependencies` |
 
 ---

@@ -1,18 +1,15 @@
-import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { StateStore } from '../state/store.js';
+import { resolveStore } from '../state/resolve-store.js';
 import { log } from '../utils/logger.js';
 import type { SyncQueueItem, QueueStatus, IntentType } from '../types/index.js';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface LogOptions {
-  /** Filter by a specific component (name or ID) */
   component?: string;
-  /** Show only the last N entries */
   last?: number;
-  /** Show only items with a specific status */
   status?: QueueStatus;
+  workspace?: string;
 }
 
 // ── Formatting ───────────────────────────────────────────────────────────────
@@ -89,13 +86,7 @@ function printItem(item: SyncQueueItem, componentName: string): void {
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function logCommand(opts: LogOptions = {}): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+  const { store } = await resolveStore(opts.workspace);
 
   const [queue, registry] = await Promise.all([
     store.getQueue(),

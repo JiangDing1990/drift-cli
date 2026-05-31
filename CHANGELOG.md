@@ -6,6 +6,25 @@
 
 ---
 
+## [0.5.0] — 2026-05-31
+
+### 新增
+- **多工作区支持**：在单个 `.codeferry/` 目录下管理多组 design+code 配对
+- **`codeferry workspace`（别名 `ws`）** 子命令组：
+  - `workspace list`：列出所有工作区及其配置摘要
+  - `workspace create <name>`：创建并初始化新工作区（支持 `--design`、`--code`）
+  - `workspace use <name>`：切换当前活跃工作区
+  - `workspace current`：显示当前工作区名称
+  - `workspace remove <name>`：删除工作区（`default` 需要 `--force`）
+- **全局 `-w / --workspace` 参数**：所有命令支持 `codeferry status -w mobile-app` 单次覆盖当前工作区
+- **工作区解析优先级**：`-w` 参数 > `CODEFERRY_WORKSPACE` 环境变量 > `state.json` > `"default"`
+- **自动迁移**：旧版本平铺 `.codeferry/` 结构自动迁移为 `workspaces/default/` 子目录（无感知）
+- **`WorkspaceManager`**（`src/state/workspace.ts`）：工作区生命周期管理
+- **`resolveStore()`**（`src/state/resolve-store.ts`）：共享 helper，消除命令文件重复 boilerplate
+- 22 个新增单元测试（`tests/workspace.test.ts`），总测试数 90 个
+
+---
+
 ## [0.4.0] — 2026-05-31
 
 ### 变更

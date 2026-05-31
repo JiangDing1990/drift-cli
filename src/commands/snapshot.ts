@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import chalk from 'chalk';
-import { StateStore } from '../state/store.js';
+import { resolveStore } from '../state/resolve-store.js';
+import type { StateStore } from '../state/store.js';
 import { scan } from '../core/scanner.js';
 import { extractComponents } from '../core/extractor.js';
 import { hashMultiple } from '../utils/hash.js';
@@ -11,13 +12,9 @@ import { spinner } from '../output/reporter.js';
 import type { ComponentEntry, ComponentRegistry, DriftConfig, FullSnapshot, SyncQueue } from '../types/index.js';
 
 interface SnapshotOptions {
-  /** Only update baseline for a specific component (by name or ID) */
   component?: string;
-  /**
-   * Only process components that are currently "in-progress" in the sync queue.
-   * Use this after applying a drift sync prompt to mark only the relevant components as synced.
-   */
   afterSync?: boolean;
+  workspace?: string;
 }
 
 // ── Baseline update logic ────────────────────────────────────────────────────
@@ -137,13 +134,7 @@ async function updateBaselines(
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+  const { store } = await resolveStore(opts.workspace);
 
   const [config, registry, queue] = await Promise.all([
     store.getConfig(),

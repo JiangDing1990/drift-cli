@@ -1,7 +1,7 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import chalk from 'chalk';
-import { StateStore } from '../state/store.js';
+import { resolveStore } from '../state/resolve-store.js';
 import { computeAllStatuses, refreshHashes } from '../core/differ.js';
 import { analyzeComponents } from '../core/analyzer.js';
 import { buildSyncPrompt, buildPromptFilename } from '../output/prompt-builder.js';
@@ -21,16 +21,12 @@ import type {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface SyncOptions {
-  /** Which side to sync TO: 'code' or 'design' */
   to: 'code' | 'design';
-  /** Copy generated prompt(s) to clipboard */
   copy?: boolean;
-  /** Write prompt files to this directory */
   out?: string;
-  /** Limit to a specific component (name or ID) */
   component?: string;
-  /** Skip AI analysis even if API key is available */
   noAi?: boolean;
+  workspace?: string;
 }
 
 // ── Direction mapping ────────────────────────────────────────────────────────
@@ -118,13 +114,7 @@ function tryLoadStackInfo(config: DriftConfig): StackInfo | null {
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function syncCommand(opts: SyncOptions): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+  const { store } = await resolveStore(opts.workspace);
 
   const [config, registry, snapshot, queue] = await Promise.all([
     store.getConfig(),

@@ -1,8 +1,8 @@
 import { readFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import chalk from 'chalk';
 import { createTwoFilesPatch } from 'diff';
-import { StateStore } from '../state/store.js';
+import { resolveStore } from '../state/resolve-store.js';
 import { computeAllStatuses, refreshHashes } from '../core/differ.js';
 import { analyzeComponents } from '../core/analyzer.js';
 import { resolvePath } from '../utils/path.js';
@@ -19,12 +19,10 @@ import type {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface DiffOptions {
-  /** Skip AI analysis (always no-AI when true). Defaults to false in v0.3. */
   noAi?: boolean;
-  /** Filter by which side changed: 'design' | 'code' | undefined (both) */
   side?: 'design' | 'code';
-  /** Filter to a single component by name or ID */
   component?: string;
+  workspace?: string;
 }
 
 // ── Formatting ───────────────────────────────────────────────────────────────
@@ -152,13 +150,7 @@ function makeQueueId(componentId: string): string {
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
-  const cwd = process.cwd();
-  const store = new StateStore(resolve(cwd, '.codeferry'));
-
-  if (!(await store.exists())) {
-    log.error('未找到 .codeferry/ 目录，请先运行 codeferry init');
-    process.exit(1);
-  }
+  const { store } = await resolveStore(opts.workspace);
 
   const [config, registry, snapshot, queue] = await Promise.all([
     store.getConfig(),

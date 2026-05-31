@@ -2,6 +2,7 @@ import { resolve } from 'node:path';
 import chalk from 'chalk';
 import inquirer from 'inquirer';
 import { StateStore } from '../state/store.js';
+import { WorkspaceManager } from '../state/workspace.js';
 import { scan } from '../core/scanner.js';
 import { extractAll } from '../core/extractor.js';
 import { detectStack, generateDesignToCodeHints, generateCodeToDesignHints } from '../core/stack-detector.js';
@@ -10,11 +11,13 @@ import { log } from '../utils/logger.js';
 import { spinner, printExtractionSummary, printScanSummary, printInitComplete } from '../output/reporter.js';
 import type { DriftConfig, ComponentRegistry, FullSnapshot, StackInfo, DetectedItem } from '../types/index.js';
 
-interface InitOptions {
+export interface InitOptions {
   design: string;
   code: string;
   force?: boolean;
   skipDetect?: boolean;
+  /** Target workspace name (default: 'default') */
+  workspace?: string;
 }
 
 function confidenceIcon(c: DetectedItem['confidence']): string {
@@ -158,23 +161,30 @@ async function collectConventions(): Promise<string[]> {
 
 export async function initCommand(options: InitOptions): Promise<void> {
   const cwd = process.cwd();
-  const driftDir = resolve(cwd, '.codeferry');
-  const store = new StateStore(driftDir);
+  const wsName = options.workspace ?? 'default';
+  const manager = new WorkspaceManager(resolve(cwd, '.codeferry'));
+
+  // Migrate legacy flat structure if needed (no-op if already new layout or brand new)
+  await manager.migrateIfNeeded();
+
+  const wsPath = manager.workspacePath(wsName);
+  const store = new StateStore(wsPath);
 
   // check existing
   if (await store.exists() && !options.force) {
-    log.warn('.codeferry/ 目录已存在。使用 --force 强制重新初始化');
+    log.warn(`工作区 '${wsName}' 已存在。使用 --force 强制重新初始化`);
     return;
   }
 
   const designRoot = resolvePath(options.design);
   const codeRoot = resolvePath(options.code);
 
-  // Step 1: create .codeferry directory
-  const s1 = spinner('创建 .codeferry/ 目录...');
+  // Step 1: create workspace directory
+  const s1 = spinner(`创建工作区 '${wsName}'...`);
   s1.start();
+  await manager.create(wsName).catch(() => store.init()); // if already exists (--force), just init
   await store.init();
-  s1.succeed('已创建 .codeferry/ 目录');
+  s1.succeed(`已创建工作区 '${wsName}'`);
 
   // Step 2: detect stack (with interactive confirmation)
   let stackInfo: StackInfo = { designToCodeHints: [], codeToDesignHints: [] };
@@ -319,5 +329,5 @@ export async function initCommand(options: InitOptions): Promise<void> {
 
   // Done
   printInitComplete(Object.keys(registry.components).length, snapshotId);
-  log.info(`下一步：运行 ${chalk.bold('drift map auto')} 自动建立组件映射关系`);
+  log.info(`下一步：运行 ${chalk.bold('codeferry map auto')} 自动建立组件映射关系`);
 }

@@ -1,3 +1,18 @@
+// ── Workspace ──
+
+export interface GlobalState {
+  version: '1.0';
+  currentWorkspace: string;
+}
+
+export interface WorkspaceInfo {
+  name: string;
+  designRoot: string;
+  codeRoot: string;
+  componentCount: number;
+  isCurrent: boolean;
+}
+
 // ── Config ──
 
 export interface DriftConfig {
