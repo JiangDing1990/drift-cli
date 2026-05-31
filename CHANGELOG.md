@@ -6,6 +6,22 @@
 
 ---
 
+## [0.5.1] — 2026-05-31
+
+### 修复
+- `map.ts`：建立映射时目标文件不存在改为 fail-hard（`process.exit(1)`）；原先 warn+继续会写入空 hash，导致 `differ.ts` 永远忽略代码侧变更（静默失效）
+- `diff.ts`：移除无意义的"hash 字符串→完整组件"假 baseline diff；工具目前只存 hash 不存内容，改为显示中性提示
+- `snapshot.ts`：软化"假同步"警告措辞；原措辞在用户手动恢复文件等正常场景下也会误触发
+- `reporter.ts` + `init.ts`：`printInitComplete` 不再自行输出 next-steps，由 `init.ts` 统一按正确顺序输出（`map auto` → `status`）
+- `store.ts`：JSON 解析失败错误信息精确到具体文件路径和 `rm` 命令，不再建议删整个 `.codeferry/` 目录
+- `prompt-builder.ts`：删除 `hasDetectedFields` 永假死代码分支（`tryLoadStackInfo` 只返回 hints 数组，不含 `framework`/`language` 等字段）
+- `hash.ts`：`hashMultiple` 改用流式 hasher + null-byte 分隔符，消除文本分隔符的理论碰撞风险
+- `path.ts`：`resolvePath` 仅展开 `~/` 前缀；`~user/path` 不再被静默错误解析
+- `status.ts`：删除每次运行都输出的 `--refresh` 提示；修正所有命令文件中遗留的 `drift xxx` 旧命令名
+- 文档：在 `USAGE.zh-CN.md` §18 记录 `CODEFERRY_WORKSPACE` 环境变量及 CI 使用示例
+
+---
+
 ## [0.5.0] — 2026-05-31
 
 ### 新增

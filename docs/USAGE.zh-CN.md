@@ -26,9 +26,10 @@
 15. [查看同步历史 — `codeferry log`](#15-查看同步历史--drift-log)
 16. [配置文件详解](#16-配置文件详解)
 17. [重新初始化与重置](#17-重新初始化与重置)
-18. [环境变量](#18-环境变量)
-19. [常见问题排查](#19-常见问题排查)
-20. [FAQ](#20-faq)
+18. [多工作区管理 — `codeferry workspace`](#18-多工作区管理--codeferry-workspace)
+19. [环境变量](#19-环境变量)
+20. [常见问题排查](#20-常见问题排查)
+21. [FAQ](#21-faq)
 
 ---
 
@@ -952,7 +953,72 @@ codeferry snapshot
 
 ---
 
-## 18. 环境变量
+## 18. 多工作区管理 — `codeferry workspace`
+
+如果你同时维护多组 design+code 配对（例如 Web 端和移动端），可以在同一个 `.codeferry/` 目录下创建多个工作区，每个工作区拥有独立的配置、注册表和快照。
+
+### 创建第二个工作区
+
+```bash
+# 创建并初始化名为 mobile-app 的工作区
+codeferry workspace create mobile-app --design ~/mobile-design --code ~/mobile-src
+
+# 等效写法（workspace 别名为 ws）
+codeferry ws create mobile-app --design ~/mobile-design --code ~/mobile-src
+```
+
+### 列出所有工作区
+
+```bash
+codeferry workspace list
+# 输出示例：
+#  WORKSPACE     DESIGN              CODE                COMPONENTS
+#  default       ./design            ./src               12
+# *mobile-app    ./mobile-design     ./mobile-src        8
+# (* 表示当前活跃工作区)
+```
+
+### 切换工作区
+
+```bash
+codeferry workspace use default      # 持久切换（写入 state.json）
+codeferry workspace current          # 查看当前工作区
+
+# 单次覆盖（不改变持久状态）
+codeferry status -w mobile-app
+codeferry diff -w default
+```
+
+### 删除工作区
+
+```bash
+codeferry workspace remove mobile-app         # 交互式确认
+codeferry workspace remove mobile-app --force # 跳过确认
+codeferry workspace remove default --force    # default 工作区只能用 --force 删除
+```
+
+### 工作区解析优先级
+
+```
+-w 参数 > CODEFERRY_WORKSPACE 环境变量 > state.json > "default"
+```
+
+### 从旧版本自动迁移
+
+v0.4.x 使用平铺的 `.codeferry/` 结构。升级到 v0.5.0+ 后，第一次运行任意命令时会**自动迁移**：
+
+```
+.codeferry/codeferry.config.json  →  .codeferry/workspaces/default/codeferry.config.json
+.codeferry/registry.json          →  .codeferry/workspaces/default/registry.json
+.codeferry/snapshots/             →  .codeferry/workspaces/default/snapshots/
+（其他文件同理）
+```
+
+迁移完成后会输出提示：`ℹ 已将现有配置迁移到 'default' 工作区`。迁移幂等，重复运行不会重复执行。
+
+---
+
+## 19. 环境变量
 
 | 变量 | 是否必需 | 说明 |
 |---|---|---|
@@ -990,7 +1056,7 @@ codeferry diff --no-ai -w mobile
 
 ---
 
-## 19. 常见问题排查
+## 20. 常见问题排查
 
 ### `codeferry init` 技术栈检测全部是低置信度或空白
 
@@ -1082,7 +1148,7 @@ codeferry snapshot --component "extras.jsx::AccountPage"
 
 ---
 
-## 20. FAQ
+## 21. FAQ
 
 **Q：codeferry 会直接修改我的代码文件吗？**  
 A：不会。codeferry 只生成 Markdown 格式的 Prompt 文件。所有代码修改都由你将 Prompt 粘贴给 Claude Code 或 Claude Design 后，由 AI 完成。codeferry 是一个「Prompt 工厂」，不会触碰你的源代码。

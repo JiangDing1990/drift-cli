@@ -26,9 +26,10 @@
 15. [Viewing History — `codeferry log`](#15-viewing-history--drift-log)
 16. [Configuration File Reference](#16-configuration-file-reference)
 17. [Re-initialization and Reset](#17-re-initialization-and-reset)
-18. [Environment Variables](#18-environment-variables)
-19. [Troubleshooting](#19-troubleshooting)
-20. [FAQ](#20-faq)
+18. [Multi-Workspace Management — `codeferry workspace`](#18-multi-workspace-management--codeferry-workspace)
+19. [Environment Variables](#19-environment-variables)
+20. [Troubleshooting](#20-troubleshooting)
+21. [FAQ](#21-faq)
 
 ---
 
@@ -940,11 +941,76 @@ No re-initialization needed. The next `codeferry sync` will pick up the updated 
 
 ---
 
-## 18. Environment Variables
+## 18. Multi-Workspace Management — `codeferry workspace`
+
+If you maintain multiple design↔code pairs (e.g. a web app and a mobile app), you can create multiple workspaces inside a single `.codeferry/` directory. Each workspace has its own config, registry, and snapshots.
+
+### Create a second workspace
+
+```bash
+# Create and initialize a workspace named 'mobile-app'
+codeferry workspace create mobile-app --design ~/mobile-design --code ~/mobile-src
+
+# 'workspace' can be abbreviated to 'ws'
+codeferry ws create mobile-app --design ~/mobile-design --code ~/mobile-src
+```
+
+### List all workspaces
+
+```bash
+codeferry workspace list
+# Output:
+#  WORKSPACE     DESIGN              CODE                COMPONENTS
+#  default       ./design            ./src               12
+# *mobile-app    ./mobile-design     ./mobile-src        8
+# (* = active workspace)
+```
+
+### Switch workspaces
+
+```bash
+codeferry workspace use default      # Persistent switch (writes to state.json)
+codeferry workspace current          # Show the active workspace name
+
+# One-off override without changing persistent state
+codeferry status -w mobile-app
+codeferry diff -w default
+```
+
+### Remove a workspace
+
+```bash
+codeferry workspace remove mobile-app          # Interactive confirmation
+codeferry workspace remove mobile-app --force  # Skip confirmation
+codeferry workspace remove default --force     # 'default' requires --force
+```
+
+### Workspace resolution order
+
+```
+-w flag > CODEFERRY_WORKSPACE env var > state.json > "default"
+```
+
+### Auto-migration from v0.4.x
+
+v0.4.x used a flat `.codeferry/` layout. On the first command after upgrading to v0.5.0+, your existing data is **automatically migrated** to `workspaces/default/`:
+
+```
+.codeferry/codeferry.config.json  →  .codeferry/workspaces/default/codeferry.config.json
+.codeferry/registry.json          →  .codeferry/workspaces/default/registry.json
+.codeferry/snapshots/             →  .codeferry/workspaces/default/snapshots/
+```
+
+Migration is idempotent — running it multiple times is safe.
+
+---
+
+## 19. Environment Variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Optional | Enables AI semantic analysis in `codeferry diff` and `codeferry sync` |
+| `CODEFERRY_WORKSPACE` | Optional | Specifies the active workspace, equivalent to passing `-w <name>` on every command |
 
 ```bash
 # Temporary (current session only)
@@ -961,7 +1027,7 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env
 
 ---
 
-## 19. Troubleshooting
+## 20. Troubleshooting
 
 ### `codeferry init` fails to detect the tech stack
 
@@ -1055,7 +1121,7 @@ codeferry snapshot --component "extras.jsx::AccountPage"
 
 ---
 
-## 20. FAQ
+## 21. FAQ
 
 **Q: Does codeferry modify my code files directly?**  
 A: No. codeferry only generates Markdown prompt files. All actual code changes are performed by Claude Code or Claude Design when you paste the prompt. codeferry is a "prompt factory" — it never touches your source code.

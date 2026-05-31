@@ -7,9 +7,9 @@ For architecture details, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ---
 
-## Current Status: v0.4.0 — Feature Complete
+## Current Status: v0.5.1 — Multi-Workspace + Bug Fixes
 
-Phase 1–4 are fully implemented and tested (68 unit tests, 0 TypeScript errors):
+All phases are fully implemented and tested (90 unit tests, 0 TypeScript errors):
 
 | Phase | Status | Highlights |
 |---|---|---|
@@ -17,24 +17,11 @@ Phase 1–4 are fully implemented and tested (68 unit tests, 0 TypeScript errors
 | Phase 2 — Mapping & Diff | ✅ Done | Mapper (2 strategies), StackDetector, Differ (7 states), `codeferry status` |
 | Phase 3 — AI + Prompts | ✅ Done | Analyzer (Claude API), PromptBuilder (bidirectional), `codeferry sync`, queue |
 | Phase 4 — Polish | ✅ Done | `codeferry log`, large-file truncation, test coverage, bug fixes |
+| Phase 5 — Multi-Workspace | ✅ Done | `codeferry workspace`, WorkspaceManager, auto-migration, `-w` global flag |
 
 ---
 
 ## Upcoming
-
-### v0.5.0 — Config Management & npm Publish
-
-**Goal:** Make tech stack info maintainable after `codeferry init`, and ship to npm.
-
-- [ ] `drift config` command — view and update tech stack info and project conventions without re-running `codeferry init`
-  - `drift config` — display current config
-  - `drift config stack` — edit detected stack fields interactively
-  - `drift config conventions` — add / remove project conventions
-- [ ] `codeferry init --redetect` — re-run stack detection on an existing project without resetting mappings or snapshots
-- [ ] Dry-run for `pnpm publish` — verify `dist/` output, `package.json` fields, and `files` allowlist
-- [ ] npm publish (v0.5.0 as the first public release)
-
----
 
 ### v0.6.0 — Mapping Accuracy
 
@@ -84,10 +71,9 @@ Phase 1–4 are fully implemented and tested (68 unit tests, 0 TypeScript errors
 
 These are not yet scheduled but may be picked up based on demand:
 
-- **Multi-workspace support** — manage multiple design↔code pairs from a single `.drift/` config
 - **Figma / Sketch bridge** — export design tokens from design tools into the snapshot system
 - **Merge prompt improvements** — smarter conflict resolution that generates both-sides-aware instructions
-- **`drift undo`** — revert the last snapshot (restore previous baseline)
+- **`codeferry undo`** — revert the last snapshot (restore previous baseline)
 - **Telemetry (opt-in)** — anonymous usage stats to prioritize features
 
 ---

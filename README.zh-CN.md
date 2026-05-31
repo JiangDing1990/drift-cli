@@ -33,6 +33,7 @@ Claude Design (JSX 原型)           Claude Code (生产代码)
 - 📋 **双向 Prompt 生成** — 生成自包含的 Markdown prompt，含完整上下文，直接发给 Claude
 - 🛠 **技术栈无关** — 核心同步逻辑不依赖任何框架；Next.js、Vue、Svelte 均适用
 - 🔎 **技术栈自动检测** — `codeferry init` 时自动识别框架、语言、样式方案，写入 prompt 转换指引
+- 🗂 **多工作区支持** — 在单个 `.codeferry/` 目录下管理多组 design↔code 配对，通过 `codeferry workspace` 管理
 
 ---
 
@@ -225,6 +226,33 @@ Options:
   --status <status>   按状态过滤：pending | in-progress | done | skipped | conflict
 ```
 
+### `codeferry workspace`（别名：`ws`）
+
+在单个 `.codeferry/` 目录下管理多组 design↔code 工作区。
+
+```
+codeferry workspace list                    # 列出所有工作区（默认子命令）
+codeferry workspace current                 # 显示当前活跃工作区名称
+codeferry workspace use <name>              # 切换活跃工作区
+codeferry workspace create <name>           # 创建并初始化新工作区
+  Options: --design <path>  --code <path>
+codeferry workspace remove <name>           # 删除工作区（--force 才能删除 'default'）
+```
+
+**工作区解析优先级**（从高到低）：
+1. 任意命令的 `-w / --workspace <name>` 参数
+2. `CODEFERRY_WORKSPACE` 环境变量
+3. `.codeferry/state.json`（由 `workspace use` 写入）
+4. 兜底 `"default"`
+
+```bash
+# 单次使用其他工作区，不改变持久状态
+codeferry status -w mobile-app
+
+# CI 中通过环境变量指定工作区
+CODEFERRY_WORKSPACE=mobile-app codeferry diff --no-ai
+```
+
 ---
 
 ## 配置文件
@@ -315,17 +343,24 @@ codeferry diff
 
 ```
 .codeferry/
-├── codeferry.config.json      # 配置（设计/代码路径、AI 设置、技术栈信息）
-├── registry.json          # 组件注册表（所有提取的组件及其映射关系）
-├── queue.json             # 同步队列（pending / in-progress / done / skipped）
-├── snapshots/
-│   ├── latest.json        # 最新快照（diff 的基准）
-│   └── snap_*.json        # 历史快照
-└── history/
-    └── *.md               # 生成的 Prompt 历史记录
+├── state.json                        # 当前活跃工作区指针
+└── workspaces/
+    ├── default/                      # 默认工作区（由 codeferry init 创建）
+    │   ├── codeferry.config.json     # 配置（设计/代码路径、AI 设置、技术栈信息）
+    │   ├── registry.json             # 组件注册表（所有提取的组件及其映射关系）
+    │   ├── queue.json                # 同步队列（pending / in-progress / done / skipped）
+    │   ├── snapshots/
+    │   │   ├── latest.json           # 最新快照（diff 的基准）
+    │   │   └── snap_*.json           # 历史快照
+    │   └── history/
+    │       └── *.md                  # 生成的 Prompt 历史记录
+    └── mobile-app/                   # 额外工作区（由 codeferry workspace create 创建）
+        └── ...
 ```
 
 `.codeferry/` 目录与两个项目均独立，不污染代码的 git 历史，也不会被 Claude Design 的导出覆盖。
+
+> **从 v0.4.x 升级？** 升级后第一次运行任意命令，工具会自动将旧的平铺 `.codeferry/` 结构迁移到 `workspaces/default/`，无数据丢失。
 
 ---
 
@@ -376,7 +411,7 @@ pnpm run lint       # TypeScript 类型检查
 
 ## 路线图
 
-完整的开发计划（v0.5.0–v1.0.0 特性规划）见 [ROADMAP.md](./ROADMAP.md)。
+完整的开发计划（v0.6.0–v1.0.0 特性规划）见 [ROADMAP.md](./ROADMAP.md)。
 
 ---
 

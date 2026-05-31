@@ -33,6 +33,7 @@ Claude Design (JSX prototypes)        Claude Code (production code)
 - 📋 **Bidirectional prompt generation** — Generates self-contained Markdown prompts with full context, ready to paste into Claude
 - 🛠 **Framework-agnostic** — Core sync logic is independent of any framework; works with Next.js, Vue, Svelte, and more
 - 🔎 **Auto stack detection** — `codeferry init` detects framework, language, and styling at setup time, injecting framework-specific conversion hints into prompts
+- 🗂 **Multi-workspace support** — Manage multiple design↔code pairs from a single `.codeferry/` directory with `codeferry workspace`
 
 ---
 
@@ -225,6 +226,33 @@ Options:
   --status <status>   Filter by status: pending | in-progress | done | skipped | conflict
 ```
 
+### `codeferry workspace` (alias: `ws`)
+
+Manage multiple design↔code workspace pairs within a single `.codeferry/` directory.
+
+```
+codeferry workspace list                    # List all workspaces (default subcommand)
+codeferry workspace current                 # Show the active workspace name
+codeferry workspace use <name>              # Switch the active workspace
+codeferry workspace create <name>           # Create and initialize a new workspace
+  Options: --design <path>  --code <path>
+codeferry workspace remove <name>           # Remove a workspace (--force to remove 'default')
+```
+
+**Workspace resolution order** (highest to lowest priority):
+1. `-w / --workspace <name>` flag on any command
+2. `CODEFERRY_WORKSPACE` environment variable
+3. `.codeferry/state.json` (set by `workspace use`)
+4. `"default"` fallback
+
+```bash
+# One-off override without changing the active workspace
+codeferry status -w mobile-app
+
+# CI: set workspace via environment variable
+CODEFERRY_WORKSPACE=mobile-app codeferry diff --no-ai
+```
+
 ---
 
 ## Configuration
@@ -315,17 +343,24 @@ Without an API key, the tool works fully — AI analysis simply degrades to gene
 
 ```
 .codeferry/
-├── codeferry.config.json      # Config (design/code paths, AI settings, stack info)
-├── registry.json          # Component registry (extracted components + mappings)
-├── queue.json             # Sync queue (pending / in-progress / done / skipped)
-├── snapshots/
-│   ├── latest.json        # Latest snapshot (baseline for diff)
-│   └── snap_*.json        # Snapshot history
-└── history/
-    └── *.md               # Generated prompt history
+├── state.json                        # Active workspace pointer
+└── workspaces/
+    ├── default/                      # Default workspace (created by codeferry init)
+    │   ├── codeferry.config.json     # Config (design/code paths, AI settings, stack info)
+    │   ├── registry.json             # Component registry (extracted components + mappings)
+    │   ├── queue.json                # Sync queue (pending / in-progress / done / skipped)
+    │   ├── snapshots/
+    │   │   ├── latest.json           # Latest snapshot (baseline for diff)
+    │   │   └── snap_*.json           # Snapshot history
+    │   └── history/
+    │       └── *.md                  # Generated prompt history
+    └── mobile-app/                   # Additional workspace (codeferry workspace create)
+        └── ...
 ```
 
 The `.codeferry/` directory is independent of both projects — it won't pollute your code's git history and won't be overwritten by Claude Design exports.
+
+> **Upgrading from v0.4.x?** The first command you run after upgrading will automatically migrate the old flat `.codeferry/` layout to `workspaces/default/` with no data loss.
 
 ---
 
@@ -376,7 +411,7 @@ pnpm run lint       # TypeScript type check
 
 ## Roadmap
 
-See [ROADMAP.md](./ROADMAP.md) for the full development plan, including upcoming features for v0.5.0–v1.0.0.
+See [ROADMAP.md](./ROADMAP.md) for the full development plan, including upcoming features for v0.6.0–v1.0.0.
 
 ---
 
