@@ -51,7 +51,7 @@ export interface DriftConfig {
     designNotes?: string[];
     /**
      * Persisted output of StackDetector — framework-specific conversion hints
-     * written by `drift init` and consumed by `drift sync` to populate prompts.
+     * written by `codeferry init` and consumed by `codeferry sync` to populate prompts.
      * May also be edited directly in codeferry.config.json.
      */
     designToCodeHints?: string[];

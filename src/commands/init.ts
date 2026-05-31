@@ -242,7 +242,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
     config.project = {};
     if (stackSummary) config.project.stack = stackSummary;
     if (conventions.length > 0) config.project.conventions = conventions;
-    // Persist framework-specific hints so `drift sync` can use them without re-running detectStack
+    // Persist framework-specific hints so `codeferry sync` can use them without re-running detectStack
     if (stackInfo.designToCodeHints.length > 0) {
       config.project.designToCodeHints = stackInfo.designToCodeHints;
     }

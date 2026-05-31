@@ -82,7 +82,7 @@ function printAiAnalysis(analysis: AIAnalysisResult): void {
       console.log(`      ${chalk.gray('•')} ${step}`);
     }
     if (analysis.syncGuide.length > 3) {
-      log.dim(`      ... 还有 ${analysis.syncGuide.length - 3} 条建议（见 drift sync 生成的 prompt）`);
+      log.dim(`      ... 还有 ${analysis.syncGuide.length - 3} 条建议（见 codeferry sync 生成的 prompt）`);
     }
   }
 
@@ -110,7 +110,7 @@ async function readCodeContent(entry: ComponentEntry, codeRoot: string): Promise
     const contents = await Promise.all(
       entry.codeFiles.map((f) => readFile(join(codeRoot, f), 'utf8').catch(() => '')),
     );
-    return contents.join('\n\n// ── next file ──\n\n');
+    return contents.filter(Boolean).join('\n\n// ── next file ──\n\n');
   } catch {
     return '';
   }
@@ -137,7 +137,7 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   ]);
 
   if (!config || !registry) {
-    log.error('配置或注册表缺失，请重新运行 drift init');
+    log.error('配置或注册表缺失，请重新运行 codeferry init');
     process.exit(1);
   }
 
@@ -195,7 +195,7 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
 
   // Step 4: Print summary header
   console.log();
-  console.log(chalk.bold('  drift diff') + chalk.gray(' — design ↔ code'));
+  console.log(chalk.bold('  codeferry diff') + chalk.gray(' — design ↔ code'));
   console.log();
   console.log(
     `  ${chalk.green(`✔ synced ${summary.synced}`)}  ` +

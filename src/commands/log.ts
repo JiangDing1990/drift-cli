@@ -134,7 +134,7 @@ export async function logCommand(opts: LogOptions = {}): Promise<void> {
 
   if (items.length === 0) {
     console.log();
-    log.info('同步队列为空 — 运行 drift diff 开始追踪变更');
+    log.info('同步队列为空 — 运行 codeferry diff 开始追踪变更');
     console.log();
     return;
   }
@@ -147,7 +147,7 @@ export async function logCommand(opts: LogOptions = {}): Promise<void> {
   for (const item of all) counts[item.status]++;
 
   console.log();
-  console.log(chalk.bold('  drift log') + chalk.gray(' — 同步历史'));
+  console.log(chalk.bold('  codeferry log') + chalk.gray(' — 同步历史'));
   console.log();
   console.log(
     `  ${chalk.gray('队列统计：')} ` +

@@ -108,7 +108,7 @@ export async function mapAutoCommand(opts: { workspace?: string } = {}): Promise
   ]);
 
   if (!config || !registry) {
-    log.error('配置或注册表缺失，请重新运行 drift init');
+    log.error('配置或注册表缺失，请重新运行 codeferry init');
     process.exit(1);
   }
 
@@ -237,7 +237,7 @@ export async function mapSetCommand(componentId: string, codePath: string, opts:
   const entry = findEntry(registry, componentId);
   if (!entry) {
     log.error(`未找到组件：${componentId}`);
-    log.dim('  可使用 drift map 查看所有组件 ID');
+    log.dim('  可使用 codeferry map list 查看所有组件 ID');
     process.exit(1);
   }
 

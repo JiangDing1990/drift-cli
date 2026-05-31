@@ -9,7 +9,7 @@ For architecture details, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ## Current Status: v0.6.0 — Mapping Accuracy
 
-All phases are fully implemented and tested (102 unit tests, 0 TypeScript errors):
+All phases are fully implemented and tested (103 unit tests, 0 TypeScript errors):
 
 | Phase | Status | Highlights |
 |---|---|---|

@@ -14,7 +14,7 @@
 - **`codeferry map suggest`**：AI 辅助交互式映射命令。先运行自动策略，再对剩余未映射组件使用 AI fallback，展示汇总建议表格，逐条交互 Accept / Skip / 手动输入路径，一次性写入 registry
   - `--no-ai`：跳过 AI 推断，仅展示自动策略候选
 - **`DriftConfig.mapping.autoThreshold`**：`codeferry map auto` 置信度阈值，可在 `codeferry.config.json` 中配置（默认 0.5）
-- 新增 9 个单元测试（`tests/ai-mapper.test.ts`）+ 3 个 mapper HTML bridge 测试，总测试数升至 **102 个**
+- 新增 9 个单元测试（`tests/ai-mapper.test.ts`）+ 3 个 mapper HTML bridge 测试，总测试数升至 **103 个**
 
 ### 变更
 - `codeferry map auto`：自动映射现在读取 `config.mapping.autoThreshold`（默认 0.5）；未匹配时提示使用 `codeferry map suggest`

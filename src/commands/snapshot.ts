@@ -21,8 +21,8 @@ interface SnapshotOptions {
 
 /**
  * Refresh all component hashes from the filesystem, then mark them as the new baseline.
- * This "closes the sync loop": after a drift sync prompt has been applied, running
- * `drift snapshot` anchors both sides' current state so future diffs detect only new changes.
+ * This "closes the sync loop": after a codeferry sync prompt has been applied, running
+ * `codeferry snapshot` anchors both sides' current state so future diffs detect only new changes.
  *
  * Safety check: warns if a component had pending changes before re-reading but still
  * shows no change — which likely means the user ran `snapshot` before applying the sync.
@@ -147,7 +147,7 @@ export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void>
   ]);
 
   if (!config || !registry) {
-    log.error('配置或注册表缺失，请重新运行 drift init');
+    log.error('配置或注册表缺失，请重新运行 codeferry init');
     process.exit(1);
   }
 
@@ -175,7 +175,7 @@ export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void>
 
     if (inProgressIds.size === 0) {
       log.warn('同步队列中没有进行中（in-progress）的组件');
-      log.dim('  请先运行 drift sync 生成并发送同步 Prompt');
+      log.dim('  请先运行 codeferry sync 生成并发送同步 Prompt');
       return;
     }
 
@@ -260,7 +260,7 @@ export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void>
   await store.saveSnapshot(snapshot);
 
   log.success(`快照已保存：${chalk.gray(snapshotId)}`);
-  log.dim('  状态已锁定为 synced 基线，下次 drift diff 将从此处开始比较');
+  log.dim('  状态已锁定为 synced 基线，下次 codeferry diff 将从此处开始比较');
 
   // If --after-sync: mark in-progress queue items as done
   if (opts.afterSync) {

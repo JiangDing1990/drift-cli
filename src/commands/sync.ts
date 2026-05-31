@@ -85,7 +85,7 @@ function makeQueueId(componentId: string, direction: SyncDirection): string {
 /**
  * Load the persisted StackInfo from config.project.
  *
- * `drift init` runs StackDetector and writes:
+ * `codeferry init` runs StackDetector and writes:
  *   - `project.stack`           — human-readable summary
  *   - `project.designToCodeHints` — framework-specific hints for design→code prompts
  *   - `project.codeToDesignHints` — framework-specific hints for code→design prompts
@@ -124,7 +124,7 @@ export async function syncCommand(opts: SyncOptions): Promise<void> {
   ]);
 
   if (!config || !registry) {
-    log.error('配置或注册表缺失，请重新运行 drift init');
+    log.error('配置或注册表缺失，请重新运行 codeferry init');
     process.exit(1);
   }
 
@@ -181,13 +181,13 @@ export async function syncCommand(opts: SyncOptions): Promise<void> {
       `  ${chalk.green('✔')} 无需同步（${dirLabel} 方向没有待处理的组件）`,
     );
     console.log();
-    log.dim('  运行 drift status 查看各状态详情');
+    log.dim('  运行 codeferry status 查看各状态详情');
     await store.saveRegistry(currentRegistry);
     return;
   }
 
   console.log();
-  console.log(chalk.bold(`  drift sync`) + chalk.gray(` — ${dirLabel}`));
+  console.log(chalk.bold(`  codeferry sync`) + chalk.gray(` — ${dirLabel}`));
   console.log();
   console.log(
     `  找到 ${chalk.bold(String(candidates.length))} 个组件需要同步：`,

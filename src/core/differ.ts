@@ -212,7 +212,7 @@ export async function refreshHashes(
  * Generate a unified diff string for a component between its baseline and current content.
  *
  * LIMITATION: The design side "baseline" is synthesised from the stored hash string
- * (not real content) because drift-cli does not cache component content across snapshots.
+ * (not real content) because codeferry does not cache component content across snapshots.
  * This produces a cosmetically correct but not text-diff-accurate output.
  * Real content diffing will be added in Phase 3 when PromptBuilder stores content.
  */
