@@ -20,7 +20,7 @@ const program = new Command();
 program
   .name('codeferry')
   .description('CLI tool for bidirectional sync between Claude Design and Claude Code')
-  .version('0.5.0')
+  .version('0.5.1')
   .option('-w, --workspace <name>', '指定工作区（覆盖 state.json 中的当前工作区）');
 
 // ── codeferry init ───────────────────────────────────────────────────────────────
