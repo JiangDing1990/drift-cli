@@ -7,9 +7,9 @@ For architecture details, see [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md).
 
 ---
 
-## Current Status: v0.6.0 — Mapping Accuracy
+## Current Status: v0.7.0 — Diff Quality
 
-All phases are fully implemented and tested (103 unit tests, 0 TypeScript errors):
+All phases are fully implemented and tested (115 unit tests, 0 TypeScript errors):
 
 | Phase | Status | Highlights |
 |---|---|---|
@@ -19,24 +19,11 @@ All phases are fully implemented and tested (103 unit tests, 0 TypeScript errors
 | Phase 4 — Polish | ✅ Done | `codeferry log`, large-file truncation, test coverage, bug fixes |
 | Phase 5 — Multi-Workspace | ✅ Done | `codeferry workspace`, WorkspaceManager, auto-migration, `-w` global flag |
 | Phase 6 — Mapping Accuracy | ✅ Done | HTML Bridge strategy, AI-assisted fallback, `codeferry map suggest`, threshold config |
+| Phase 7 — Diff Quality | ✅ Done | Snapshot content storage, colored unified diff, `--format json` CI output |
 
 ---
 
 ## Upcoming
-
-### v0.7.0 — Diff Quality
-
-**Goal:** Show meaningful diffs instead of "baseline → full content" placeholders.
-
----
-
-### v0.7.0 — Diff Quality
-
-**Goal:** Show meaningful diffs instead of "baseline → full content" placeholders.
-
-- [ ] Store component content snapshots alongside hash snapshots so diffs show real line-by-line changes against the actual baseline content
-- [ ] Colored unified diff view in `codeferry diff` terminal output
-- [ ] `codeferry diff --format json` — machine-readable output for CI / editor integrations
 
 ---
 

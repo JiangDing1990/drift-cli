@@ -1,6 +1,6 @@
 {
   "name": "codeferry",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "CLI tool for bidirectional sync between Claude Design and Claude Code projects",
   "type": "module",
   "bin": {

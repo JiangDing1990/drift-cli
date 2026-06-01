@@ -118,6 +118,18 @@ export interface ComponentSnapshot {
   codeHash: string;
   designMtime: number;
   codeMtime: number;
+  /**
+   * Snapshot of the design-side component content at the time of the last sync baseline.
+   * Used as the "before" side in `codeferry diff` unified diffs.
+   * Omitted when the component content exceeds 100 KB (graceful degradation).
+   */
+  designContent?: string;
+  /**
+   * Snapshot of the code-side content at the time of the last sync baseline.
+   * For multi-file mappings, files are joined with a separator (same as readCodeContent).
+   * Omitted when content exceeds 100 KB.
+   */
+  codeContent?: string;
 }
 
 export interface FullSnapshot {

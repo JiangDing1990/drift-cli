@@ -209,56 +209,56 @@ export async function refreshHashes(
 // ── Unified diff generation ─────────────────────────────────────────────────
 
 /**
- * Generate a unified diff string for a component between its baseline and current content.
+ * Generate a unified diff string comparing baseline content against current content.
  *
- * LIMITATION: The design side "baseline" is synthesised from the stored hash string
- * (not real content) because codeferry does not cache component content across snapshots.
- * This produces a cosmetically correct but not text-diff-accurate output.
- * Real content diffing will be added in Phase 3 when PromptBuilder stores content.
+ * Pure function — callers are responsible for reading file content and supplying
+ * the baseline from the snapshot (ComponentSnapshot.designContent / codeContent).
+ *
+ * Returns an empty string when baseline and current are identical (no diff to show).
+ *
+ * @param baseline  Content at last sync baseline (from snapshot). Pass '' when
+ *                  no baseline is available — the diff will show a full addition block.
+ * @param current   Current file/component content.
+ * @param label     Filename label shown in the diff header.
+ * @param baselineRef  Human-readable baseline reference, e.g. "baseline@abc12345".
  */
-export async function generateComponentDiff(
-  entry: ComponentEntry,
-  config: DriftConfig,
-  direction: 'design' | 'code',
-): Promise<string> {
-  if (direction === 'design') {
-    const fullPath = join(resolvePath(config.design.root), entry.designFile);
-    try {
-      const content = await readFile(fullPath, 'utf8');
-      const lines = content.split('\n');
-      const current = lines.slice(entry.designStartLine - 1, entry.designEndLine).join('\n');
-      // We don't have stored baseline content — use a placeholder so callers get
-      // the current content in the diff output while the baseline shows as empty.
-      const baseline = '';
-      return createPatch(
-        `${entry.designFile} [${entry.name}]`,
-        baseline,
-        current,
-        `baseline@${entry.designHashAtSync?.slice(0, 8) ?? 'never'}`,
-        'current',
-      );
-    } catch {
-      return '';
-    }
-  }
+export function generateComponentDiff(
+  baseline: string,
+  current: string,
+  label: string,
+  baselineRef: string,
+): string {
+  // createPatch returns a string; it's always non-empty (contains the header at minimum),
+  // so we detect "no change" by checking for absence of actual diff hunks.
+  const patch = createPatch(label, baseline, current, baselineRef, 'current');
+  // A patch with no hunks has no lines starting with + or - (beyond the header).
+  // The simplest reliable check: if baseline === current, skip.
+  if (baseline === current) return '';
+  return patch;
+}
 
-  // code direction
-  if (entry.codeFiles.length === 0) return '';
-  try {
-    const codeRoot = resolvePath(config.code.root);
-    const contents = await Promise.all(
-      entry.codeFiles.map((f) => readFile(join(codeRoot, f), 'utf8').catch(() => '')),
-    );
-    const current = contents.join('\n\n// ---\n\n');
-    const baseline = '';
-    return createPatch(
-      entry.codeFiles.join(', '),
-      baseline,
-      current,
-      `baseline@${entry.codeHashAtSync?.slice(0, 8) ?? 'never'}`,
-      'current',
-    );
-  } catch {
-    return '';
-  }
+/**
+ * Apply chalk colors to a unified diff string for terminal display.
+ *
+ * Color scheme:
+ *   + lines (additions) → green
+ *   - lines (removals)  → red
+ *   @@ lines (hunk)     → cyan
+ *   --- / +++ headers   → bold
+ *   context lines       → gray
+ */
+export function colorizeUnifiedDiff(patch: string): string {
+  // Import chalk lazily to keep this module free of ESM-only side effects in tests.
+  // We do a synchronous require-style trick by accepting it as a string operation.
+  // Actually chalk is already used as ESM — we just import it at the top of the file.
+  return patch
+    .split('\n')
+    .map((line) => {
+      if (line.startsWith('+++') || line.startsWith('---')) return `\x1b[1m${line}\x1b[0m`; // bold
+      if (line.startsWith('+')) return `\x1b[32m${line}\x1b[0m`;  // green
+      if (line.startsWith('-')) return `\x1b[31m${line}\x1b[0m`;  // red
+      if (line.startsWith('@@')) return `\x1b[36m${line}\x1b[0m`; // cyan
+      return `\x1b[90m${line}\x1b[0m`; // gray
+    })
+    .join('\n');
 }

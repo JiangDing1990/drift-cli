@@ -20,7 +20,7 @@ const program = new Command();
 program
   .name('codeferry')
   .description('CLI tool for bidirectional sync between Claude Design and Claude Code')
-  .version('0.6.0')
+  .version('0.7.0')
   .option('-w, --workspace <name>', '指定工作区（覆盖 state.json 中的当前工作区）');
 
 // ── codeferry init ───────────────────────────────────────────────────────────────
@@ -154,10 +154,15 @@ program
   .option('--no-ai', '跳过 AI 语义分析，仅展示结构 diff')
   .option('--side <side>', '仅检测指定侧变更：design | code')
   .option('--component <name>', '仅检测指定组件')
+  .option('--format <format>', '输出格式：text（默认彩色终端）或 json（机器可读，适合 CI）', 'text')
   .action(async (opts) => {
     const globalOpts = program.opts();
     if (opts.side && !['design', 'code'].includes(opts.side)) {
       console.error(`--side 只接受 "design" 或 "code"，收到：${opts.side}`);
+      process.exit(1);
+    }
+    if (opts.format && !['text', 'json'].includes(opts.format)) {
+      console.error(`--format 只接受 "text" 或 "json"，收到：${opts.format}`);
       process.exit(1);
     }
     try {
@@ -165,6 +170,7 @@ program
         noAi: !opts.ai,
         side: opts.side as 'design' | 'code' | undefined,
         component: opts.component,
+        format: opts.format as 'text' | 'json',
         workspace: globalOpts.workspace,
       });
     } catch (err) {

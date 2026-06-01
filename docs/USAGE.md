@@ -1169,16 +1169,49 @@ A: `npm update -g codeferry` or `pnpm update -g codeferry`.
 A: codeferry detects file-level hash changes first (fast path), then re-extracts only the components that actually changed. Even if Claude Design rewrites 20 JSX files, only the components with genuine content changes will appear in `codeferry diff` output. This avoids false positives from Claude Design's full-directory export.
 
 **Q: Can I run codeferry in CI?**  
-A: Yes, for drift detection (not sync):
+A: Yes, for drift detection (not sync). Use `--format json` for reliable machine-readable output:
 
 ```bash
-# In CI, just check if drift has occurred
-codeferry diff --no-ai
-if codeferry status | grep -q "design-ahead\|code-ahead\|conflict"; then
-  echo "Drift detected! Run codeferry sync to resolve."
+# Structured JSON output — easy to parse in CI scripts
+codeferry diff --no-ai --format json | jq '.summary'
+
+# Example: fail the build if any actionable drift is detected
+SUMMARY=$(codeferry diff --no-ai --format json | jq '.summary')
+DRIFT=$(echo "$SUMMARY" | jq '.designAhead + .codeAhead + .conflicts')
+if [ "$DRIFT" -gt 0 ]; then
+  echo "Drift detected ($DRIFT component(s) need syncing). Run codeferry sync to resolve."
   exit 1
 fi
 ```
+
+JSON output shape:
+
+```json
+{
+  "summary": {
+    "synced": 48,
+    "designAhead": 1,
+    "codeAhead": 0,
+    "conflicts": 0,
+    "neverSynced": 0,
+    "newDesign": 2,
+    "newCode": 0
+  },
+  "components": [
+    {
+      "id": "extras.jsx::AccountPage",
+      "name": "AccountPage",
+      "status": "design-ahead",
+      "designFile": "extras.jsx",
+      "codeFiles": ["src/app/(dashboard)/account/page.tsx"],
+      "designDiff": "--- baseline@abc12345\n+++ current\n@@ -10,6 +10,7 @@\n ...",
+      "codeDiff": null
+    }
+  ]
+}
+```
+
+> `--ci` (non-zero exit on drift) is planned for v0.8.0. For now use the `jq` pattern above.
 
 ---
 

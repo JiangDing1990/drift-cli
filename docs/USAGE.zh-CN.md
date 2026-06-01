@@ -1196,16 +1196,49 @@ A：`npm update -g codeferry` 或 `pnpm update -g codeferry`。
 A：不会。codeferry 先比对文件级 hash 做快速过滤，只对文件内容确实发生变化的重新提取组件 hash。即使 Claude Design 重写了 20 个 JSX 文件，`codeferry diff` 也只会报告内容真正变化的组件，不会产生误报。
 
 **Q：能在 CI 中使用 codeferry 吗？**  
-A：可以，适合用于漂移检测（不适合执行同步）：
+A：可以，适合用于漂移检测（不适合执行同步）。推荐使用 `--format json` 获取机器可读的结构化输出：
 
 ```bash
-# 在 CI 中检测是否有未同步的漂移
-codeferry diff --no-ai
-if codeferry status | grep -q "design-ahead\|code-ahead\|conflict"; then
-  echo "检测到漂移！请运行 codeferry sync 进行同步。"
+# 结构化 JSON 输出，方便 CI 脚本解析
+codeferry diff --no-ai --format json | jq '.summary'
+
+# 示例：检测到漂移时让构建失败
+SUMMARY=$(codeferry diff --no-ai --format json | jq '.summary')
+DRIFT=$(echo "$SUMMARY" | jq '.designAhead + .codeAhead + .conflicts')
+if [ "$DRIFT" -gt 0 ]; then
+  echo "检测到漂移（${DRIFT} 个组件需要同步），请运行 codeferry sync 进行处理。"
   exit 1
 fi
 ```
+
+JSON 输出结构：
+
+```json
+{
+  "summary": {
+    "synced": 48,
+    "designAhead": 1,
+    "codeAhead": 0,
+    "conflicts": 0,
+    "neverSynced": 0,
+    "newDesign": 2,
+    "newCode": 0
+  },
+  "components": [
+    {
+      "id": "extras.jsx::AccountPage",
+      "name": "AccountPage",
+      "status": "design-ahead",
+      "designFile": "extras.jsx",
+      "codeFiles": ["src/app/(dashboard)/account/page.tsx"],
+      "designDiff": "--- baseline@abc12345\n+++ current\n@@ -10,6 +10,7 @@\n ...",
+      "codeDiff": null
+    }
+  ]
+}
+```
+
+> `--ci`（漂移时非零退出码）计划在 v0.8.0 中提供。目前请使用上述 `jq` 脚本方式。
 
 **Q：如果我的 API Key 被消耗完了会怎样？**  
 A：codeferry 会自动降级为无 AI 模式。你会看到提示：`未设置 ANTHROPIC_API_KEY 或 API 调用失败，跳过 AI 分析（使用通用指引）`。其余功能完全正常。

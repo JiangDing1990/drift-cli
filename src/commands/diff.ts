@@ -2,7 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import chalk from 'chalk';
 import { resolveStore } from '../state/resolve-store.js';
-import { computeAllStatuses, refreshHashes } from '../core/differ.js';
+import {
+  computeAllStatuses,
+  refreshHashes,
+  generateComponentDiff,
+  colorizeUnifiedDiff,
+} from '../core/differ.js';
 import { analyzeComponents } from '../core/analyzer.js';
 import { resolvePath } from '../utils/path.js';
 import { log } from '../utils/logger.js';
@@ -12,6 +17,7 @@ import type {
   ComponentSyncStatus,
   SyncQueueItem,
   AIAnalysisResult,
+  DiffResult,
   IntentType,
 } from '../types/index.js';
 
@@ -21,7 +27,24 @@ interface DiffOptions {
   noAi?: boolean;
   side?: 'design' | 'code';
   component?: string;
+  format?: 'text' | 'json';
   workspace?: string;
+}
+
+/** Shape of the --format json output. */
+interface DiffJsonOutput {
+  summary: DiffResult['summary'];
+  components: Array<{
+    id: string;
+    name: string;
+    status: ComponentSyncStatus;
+    designFile: string;
+    codeFiles: string[];
+    /** Unified diff text (uncolored). null when no diff is available. */
+    designDiff: string | null;
+    /** Unified diff text (uncolored). null when no diff is available. */
+    codeDiff: string | null;
+  }>;
 }
 
 // ── Formatting ───────────────────────────────────────────────────────────────
@@ -127,6 +150,7 @@ function makeQueueId(componentId: string): string {
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
+  const isJson = opts.format === 'json';
   const { store } = await resolveStore(opts.workspace);
 
   const [config, registry, snapshot, queue] = await Promise.all([
@@ -142,21 +166,22 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   }
 
   // Step 1: Refresh hashes by scanning both directories
-  const scanSpinner = spinner('正在扫描双目录变更...');
-  scanSpinner.start();
+  // In JSON mode suppress the spinner so stdout stays clean for piping
+  const scanSpinner = isJson ? null : spinner('正在扫描双目录变更...');
+  scanSpinner?.start();
 
   let refreshResult;
   try {
     refreshResult = await refreshHashes(registry, config, snapshot);
   } catch (err) {
-    scanSpinner.fail('扫描失败');
+    scanSpinner?.fail('扫描失败');
     log.error(String(err));
     process.exit(1);
   }
 
   const { registry: currentRegistry, designChanged, codeChanged } = refreshResult;
   const totalChanged = new Set([...designChanged, ...codeChanged]).size;
-  scanSpinner.succeed(
+  scanSpinner?.succeed(
     `扫描完成：${designChanged.length} 个设计变更，${codeChanged.length} 个代码变更` +
     (totalChanged > 0 ? ` · ${totalChanged} 个组件受影响` : ''),
   );
@@ -193,27 +218,33 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
     }
   }
 
-  // Step 4: Print summary header
-  console.log();
-  console.log(chalk.bold('  codeferry diff') + chalk.gray(' — design ↔ code'));
-  console.log();
-  console.log(
-    `  ${chalk.green(`✔ synced ${summary.synced}`)}  ` +
-    `${chalk.yellow(`◐ design-ahead ${summary.designAhead}`)}  ` +
-    `${chalk.blue(`◑ code-ahead ${summary.codeAhead}`)}  ` +
-    `${chalk.red(`⚠ conflict ${summary.conflicts}`)}  ` +
-    `${chalk.gray(`○ never-synced ${summary.neverSynced}`)}`,
-  );
-  console.log();
+  // Step 4: Print summary header (text mode only)
+  if (!isJson) {
+    console.log();
+    console.log(chalk.bold('  codeferry diff') + chalk.gray(' — design ↔ code'));
+    console.log();
+    console.log(
+      `  ${chalk.green(`✔ synced ${summary.synced}`)}  ` +
+      `${chalk.yellow(`◐ design-ahead ${summary.designAhead}`)}  ` +
+      `${chalk.blue(`◑ code-ahead ${summary.codeAhead}`)}  ` +
+      `${chalk.red(`⚠ conflict ${summary.conflicts}`)}  ` +
+      `${chalk.gray(`○ never-synced ${summary.neverSynced}`)}`,
+    );
+    console.log();
+  }
 
   if (candidates.length === 0) {
-    console.log(`  ${chalk.green('✔')} 无变更，所有已映射组件均已同步`);
-    console.log();
+    if (isJson) {
+      process.stdout.write(JSON.stringify({ summary, components: [] }, null, 2) + '\n');
+    } else {
+      console.log(`  ${chalk.green('✔')} 无变更，所有已映射组件均已同步`);
+      console.log();
+    }
     await store.saveRegistry(currentRegistry);
     return;
   }
 
-  // Step 5: Read file contents for changed components
+  // Step 5: Read current file contents for changed components
   const designRoot = resolvePath(config.design.root);
   const codeRoot = resolvePath(config.code.root);
 
@@ -228,10 +259,10 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
     }),
   );
 
-  // Step 6: AI analysis (unless --no-ai)
+  // Step 6: AI analysis (unless --no-ai or json mode)
   const analysisMap = new Map<string, AIAnalysisResult>();
 
-  if (!opts.noAi) {
+  if (!opts.noAi && !isJson) {
     const apiKey = process.env['ANTHROPIC_API_KEY'];
     if (apiKey) {
       const aiSpinner = spinner(`正在对 ${candidates.length} 个变更组件进行 AI 语义分析...`);
@@ -252,45 +283,103 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
     }
   }
 
-  // Step 7: Show structural diff + AI analysis for each component
+  // Step 7: Compute diffs and render output
+  //
+  // For each component, we attempt to produce a unified diff using:
+  //   - baseline: ComponentSnapshot.designContent / codeContent (stored at last snapshot)
+  //   - current:  freshly read file content
+  //
+  // When baseline content is unavailable (old snapshot format or 100 KB size cap exceeded),
+  // we fall back to showing the current content preview with a notice.
+  const jsonComponents: DiffJsonOutput['components'] = [];
+
   for (const { entry, status } of candidates) {
+    const content = contentMap.get(entry.id)!;
+    const snap = snapshot?.components[entry.id];
+
+    // Compute design-side diff
+    let designDiff: string | null = null;
+    if (status === 'design-ahead' || status === 'both-changed') {
+      const baselineDesign = snap?.designContent ?? '';
+      if (baselineDesign) {
+        designDiff = generateComponentDiff(
+          baselineDesign,
+          content.design,
+          `${entry.designFile} [${entry.name}]`,
+          `baseline@${entry.designHashAtSync?.slice(0, 8) ?? 'never'}`,
+        ) || null;
+      }
+    }
+
+    // Compute code-side diff
+    let codeDiff: string | null = null;
+    if ((status === 'code-ahead' || status === 'both-changed') && entry.codeFiles.length > 0) {
+      const baselineCode = snap?.codeContent ?? '';
+      if (baselineCode) {
+        codeDiff = generateComponentDiff(
+          baselineCode,
+          content.code,
+          entry.codeFiles.join(', '),
+          `baseline@${entry.codeHashAtSync?.slice(0, 8) ?? 'never'}`,
+        ) || null;
+      }
+    }
+
+    if (isJson) {
+      jsonComponents.push({
+        id: entry.id,
+        name: entry.name,
+        status,
+        designFile: entry.designFile,
+        codeFiles: entry.codeFiles,
+        designDiff,
+        codeDiff,
+      });
+      continue;
+    }
+
+    // ── Text output ─────────────────────────────────────────────────────────
     printComponentHeader(entry, status);
 
-    // Show AI analysis if available
     const analysis = analysisMap.get(entry.id);
     if (analysis) {
       printAiAnalysis(analysis);
     }
 
-    const content = contentMap.get(entry.id)!;
-
     if (status === 'design-ahead' || status === 'both-changed') {
-      const designContent = content.design;
-      if (designContent) {
+      if (designDiff) {
+        console.log(`  ${chalk.yellow('◐ 设计侧变更（baseline → current）：')}`);
+        console.log(colorizeUnifiedDiff(designDiff));
+        console.log();
+      } else if (content.design) {
+        // No baseline content in snapshot — show current content with a notice
         console.log(`  ${chalk.yellow('◐ 设计侧当前内容：')}`);
-        const lines = designContent.split('\n');
+        const lines = content.design.split('\n');
         const preview = lines.slice(0, 20).map((l) => `    ${chalk.gray(l)}`).join('\n');
         console.log(preview);
         if (lines.length > 20) log.dim(`    ... 还有 ${lines.length - 20} 行`);
         console.log();
-
-        // v0.3+ stores only the baseline hash, not baseline content — real diff not possible yet.
-        // Show a neutral notice instead of a misleading "hash string → full component" diff.
         if (entry.designHashAtSync) {
-          log.dim('  [基线 hash 已存在，但无历史内容可对比 — 上次同步后的首次变更]');
+          log.dim('  [快照无内容记录，无法生成 diff — 请重新运行 codeferry snapshot 建立基线]');
         }
       }
     }
 
     if ((status === 'code-ahead' || status === 'both-changed') && entry.codeFiles.length > 0) {
-      const codeContent = content.code;
-      if (codeContent) {
+      if (codeDiff) {
+        console.log(`  ${chalk.blue('◑ 代码侧变更（baseline → current）：')}`);
+        console.log(colorizeUnifiedDiff(codeDiff));
+        console.log();
+      } else if (content.code) {
         console.log(`  ${chalk.blue('◑ 代码侧当前内容：')}`);
-        const lines = codeContent.split('\n');
+        const lines = content.code.split('\n');
         const preview = lines.slice(0, 20).map((l) => `    ${chalk.gray(l)}`).join('\n');
         console.log(preview);
         if (lines.length > 20) log.dim(`    ... 还有 ${lines.length - 20} 行`);
         console.log();
+        if (entry.codeHashAtSync) {
+          log.dim('  [快照无内容记录，无法生成 diff — 请重新运行 codeferry snapshot 建立基线]');
+        }
       }
     }
 
@@ -307,7 +396,6 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   const now = Date.now();
   const processedIds = new Set(candidates.map(({ entry }) => entry.id));
 
-  // Remove stale pending items for the same components (keep done/skipped)
   const survivingItems = queue.items.filter((item) => {
     if (!processedIds.has(item.componentId)) return true;
     return item.status === 'done' || item.status === 'skipped';
@@ -315,7 +403,6 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
 
   const newItems: SyncQueueItem[] = candidates.map(({ entry, status }) => {
     const analysis = analysisMap.get(entry.id);
-    // Determine direction from status
     const direction = (status === 'code-ahead')
       ? 'code-to-design' as const
       : 'design-to-code' as const;
@@ -341,7 +428,13 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   // Step 9: Save refreshed registry
   await store.saveRegistry(currentRegistry);
 
-  // Step 10: Next-steps hints
+  // Step 10: JSON output or text next-steps
+  if (isJson) {
+    const output: DiffJsonOutput = { summary, components: jsonComponents };
+    process.stdout.write(JSON.stringify(output, null, 2) + '\n');
+    return;
+  }
+
   if (summary.conflicts > 0) {
     log.warn(
       `发现 ${summary.conflicts} 个冲突组件 — 两侧均有修改，运行 ${chalk.bold('codeferry sync --to code')} 生成合并 Prompt`,

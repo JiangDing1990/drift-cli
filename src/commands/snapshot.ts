@@ -11,6 +11,42 @@ import { log } from '../utils/logger.js';
 import { spinner } from '../output/reporter.js';
 import type { ComponentEntry, ComponentRegistry, DriftConfig, FullSnapshot, SyncQueue } from '../types/index.js';
 
+// ── Content helpers ──────────────────────────────────────────────────────────
+
+/** Maximum bytes stored per content field to prevent snapshot file bloat. */
+const MAX_CONTENT_BYTES = 100 * 1024; // 100 KB
+
+/**
+ * Read the design-side component slice (startLine..endLine) from disk.
+ * Returns '' on any read/parse failure so the snapshot still saves.
+ */
+async function readDesignSlice(entry: ComponentEntry, designRoot: string): Promise<string> {
+  try {
+    const content = await readFile(join(designRoot, entry.designFile), 'utf8');
+    return content.split('\n').slice(entry.designStartLine - 1, entry.designEndLine).join('\n');
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Read and join all code files for the component.
+ * Returns '' when the component has no code mappings.
+ */
+async function readCodeSlice(entry: ComponentEntry, codeRoot: string): Promise<string> {
+  if (entry.codeFiles.length === 0) return '';
+  try {
+    const contents = await Promise.all(
+      entry.codeFiles.map((f) => readFile(join(codeRoot, f), 'utf8').catch(() => '')),
+    );
+    return contents.filter(Boolean).join('\n\n// ── next file ──\n\n');
+  } catch {
+    return '';
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+
 interface SnapshotOptions {
   component?: string;
   afterSync?: boolean;
@@ -242,7 +278,20 @@ export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void>
     ),
   };
 
-  for (const [id, entry] of Object.entries(registry.components)) {
+  // Read component contents in parallel for snapshot baseline storage.
+  // We do this once here so every future `codeferry diff` can produce a real
+  // line-by-line diff instead of the "no baseline content" placeholder.
+  const contentEntries = await Promise.all(
+    Object.entries(registry.components).map(async ([id, entry]) => {
+      const [designContent, codeContent] = await Promise.all([
+        readDesignSlice(entry, designRoot),
+        readCodeSlice(entry, codeRoot),
+      ]);
+      return { id, entry, designContent, codeContent };
+    }),
+  );
+
+  for (const { id, entry, designContent, codeContent } of contentEntries) {
     const designFileInfo = designScan.files[entry.designFile];
     const codeMtime = entry.codeFiles.reduce((max, f) => {
       const fi = codeScan.files[f];
@@ -254,6 +303,14 @@ export async function snapshotCommand(opts: SnapshotOptions = {}): Promise<void>
       codeHash: entry.codeHash,
       designMtime: designFileInfo?.mtime ?? 0,
       codeMtime,
+      // Store content only when within size cap — oversized components degrade
+      // gracefully (diff falls back to "no baseline" notice).
+      designContent: designContent && designContent.length <= MAX_CONTENT_BYTES
+        ? designContent
+        : undefined,
+      codeContent: codeContent && codeContent.length <= MAX_CONTENT_BYTES
+        ? codeContent
+        : undefined,
     };
   }
 

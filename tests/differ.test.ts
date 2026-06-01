@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStatus, computeAllStatuses } from '../src/core/differ.js';
+import { computeStatus, computeAllStatuses, generateComponentDiff, colorizeUnifiedDiff } from '../src/core/differ.js';
 import type { ComponentEntry, ComponentRegistry } from '../src/types/index.js';
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -175,5 +175,99 @@ describe('computeAllStatuses', () => {
     const result = computeAllStatuses(registry);
     expect(result.summary.synced).toBe(0);
     expect(result.changedComponents).toHaveLength(0);
+  });
+});
+
+// ── generateComponentDiff ─────────────────────────────────────────────────────
+
+describe('generateComponentDiff', () => {
+  it('returns empty string when baseline and current are identical', () => {
+    const content = 'function Foo() {\n  return <div>Hello</div>;\n}\n';
+    expect(generateComponentDiff(content, content, 'Foo.jsx', 'baseline@abc')).toBe('');
+  });
+
+  it('returns a unified diff patch when content differs', () => {
+    const baseline = 'function Foo() {\n  return <div>Hello</div>;\n}\n';
+    const current = 'function Foo() {\n  return <div>World</div>;\n}\n';
+    const patch = generateComponentDiff(baseline, current, 'Foo.jsx [Foo]', 'baseline@abc12345');
+    expect(patch).toBeTruthy();
+    expect(patch).toContain('-  return <div>Hello</div>;');
+    expect(patch).toContain('+  return <div>World</div>;');
+  });
+
+  it('patch header includes the provided label and baselineRef', () => {
+    const baseline = 'old content\n';
+    const current = 'new content\n';
+    const patch = generateComponentDiff(baseline, current, 'pages/Home.jsx', 'baseline@deadbeef');
+    expect(patch).toContain('pages/Home.jsx');
+    expect(patch).toContain('baseline@deadbeef');
+  });
+
+  it('returns a full-addition diff when baseline is empty string', () => {
+    const current = 'function Bar() {\n  return null;\n}\n';
+    const patch = generateComponentDiff('', current, 'Bar.jsx', 'baseline@none');
+    expect(patch).toBeTruthy();
+    // All non-header lines in the hunk should be additions
+    const hunkLines = patch.split('\n').filter((l) => l.startsWith('+') && !l.startsWith('+++'));
+    expect(hunkLines.length).toBeGreaterThan(0);
+  });
+
+  it('includes @@ hunk headers in the patch', () => {
+    const baseline = 'a\nb\nc\n';
+    const current = 'a\nB\nc\n';
+    const patch = generateComponentDiff(baseline, current, 'file.tsx', 'ref');
+    expect(patch).toContain('@@');
+  });
+});
+
+// ── colorizeUnifiedDiff ───────────────────────────────────────────────────────
+
+describe('colorizeUnifiedDiff', () => {
+  it('wraps + lines with green ANSI codes', () => {
+    const patch = '+added line\n';
+    const colored = colorizeUnifiedDiff(patch);
+    expect(colored).toContain('\x1b[32m+added line\x1b[0m');
+  });
+
+  it('wraps - lines with red ANSI codes', () => {
+    const patch = '-removed line\n';
+    const colored = colorizeUnifiedDiff(patch);
+    expect(colored).toContain('\x1b[31m-removed line\x1b[0m');
+  });
+
+  it('wraps @@ hunk headers with cyan ANSI codes', () => {
+    const patch = '@@ -1,3 +1,3 @@\n';
+    const colored = colorizeUnifiedDiff(patch);
+    expect(colored).toContain('\x1b[36m@@ -1,3 +1,3 @@\x1b[0m');
+  });
+
+  it('wraps --- / +++ headers with bold ANSI codes (takes precedence over +/- coloring)', () => {
+    const patch = '--- baseline\n+++ current\n';
+    const colored = colorizeUnifiedDiff(patch);
+    expect(colored).toContain('\x1b[1m--- baseline\x1b[0m');
+    expect(colored).toContain('\x1b[1m+++ current\x1b[0m');
+    // Should NOT be colored green/red — bold takes priority
+    expect(colored).not.toContain('\x1b[32m+++ current\x1b[0m');
+    expect(colored).not.toContain('\x1b[31m--- baseline\x1b[0m');
+  });
+
+  it('wraps context lines with gray ANSI codes', () => {
+    const patch = ' context line\n';
+    const colored = colorizeUnifiedDiff(patch);
+    expect(colored).toContain('\x1b[90m context line\x1b[0m');
+  });
+
+  it('preserves newlines between lines', () => {
+    const patch = '+added\n-removed\n context\n';
+    const colored = colorizeUnifiedDiff(patch);
+    const lines = colored.split('\n');
+    expect(lines.length).toBe(4); // 3 lines + trailing empty from split
+  });
+
+  it('handles a single blank line gracefully (gray-colors it)', () => {
+    // '' split by '\n' produces [''] — colorized as a gray context line, not stripped
+    const result = colorizeUnifiedDiff('');
+    expect(result).toContain('\x1b[90m');
+    expect(result).toContain('\x1b[0m');
   });
 });
