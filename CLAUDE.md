@@ -13,6 +13,8 @@ codeferry is a **bidirectional sync CLI** between Claude Design (JSX prototypes)
 ```
 src/
 ├── commands/        CLI command entry points (thin wrappers, delegate to core/)
+│   └── watch.ts       Continuous file watcher — reloads registry/snapshot from disk
+│                      before each scan; dirty-flag pattern prevents dropped events
 ├── core/            Pure business logic (no I/O side effects in tests)
 │   ├── extractor.ts   JSX component boundary extraction (brace-depth counting)
 │   ├── scanner.ts     File system scan + SHA-256 hashing
@@ -29,8 +31,9 @@ src/
 │   ├── workspace.ts       WorkspaceManager — workspace lifecycle (create/list/remove/migrate)
 │   └── resolve-store.ts   Shared helper: resolves active workspace → StateStore
 ├── types/index.ts     All shared TypeScript types (single source of truth)
-└── utils/             hash.ts · path.ts · logger.ts
-tests/               Vitest unit tests (7 files, 68 tests)
+└── utils/             hash.ts · path.ts · logger.ts · content-reader.ts
+templates/           User-copyable GitHub Actions workflow templates
+tests/               Vitest unit tests (9 files, 115 tests)
 docs/                ARCHITECTURE.md · USAGE.md · USAGE.zh-CN.md
 ```
 
@@ -92,14 +95,20 @@ both changed                   → 'both-changed' (conflict)
 - `codeferry sync` updates them to `in-progress`
 - `codeferry snapshot --after-sync` reads `in-progress`, updates baselines, marks `done`
 
+### 9. `codeferry diff --ci` exit code semantics
+`--ci` implies `--format json` and `--no-ai`. Uses `process.exitCode = N; return` (not `process.exit(N)`) to ensure large JSON output is fully flushed before the process terminates. Exit 1 when any actionable status is present (design-ahead, code-ahead, both-changed, never-synced); exit 0 when all synced.
+
+### 10. `codeferry watch` concurrency rules
+- Reload registry **and** snapshot from disk at the start of every scan loop iteration — never reuse the in-memory copy across scans. This prevents watch from overwriting state written by concurrent commands (`snapshot --after-sync`, `map set`, etc.).
+- Use the `dirty` flag pattern: if a file event arrives while a scan is running, set `dirty = true` instead of dropping the event; schedule a follow-up scan in `finally` when `dirty` is true.
+
 ---
 
 ## Key Known Issues / Tech Debt
 
 | Issue | Severity | Planned fix |
 |---|---|---|
-| `codeferry diff` shows full component vs empty baseline (not a real diff) | Medium | v0.7.0: store baseline content in snapshots |
-| HTML Bridge only traces 1 level of imports (App.jsx imports not followed) | Low | v0.7.0: recursive import graph traversal |
+| HTML Bridge only traces 1 level of imports (App.jsx imports not followed) | Low | v0.9.0+ |
 | `pnpm-workspace.yaml` uses legacy `allowBuilds` syntax | Low | Next release: migrate to `onlyBuiltDependencies` |
 
 ---
@@ -167,6 +176,7 @@ All types are in `src/types/index.ts` — single source of truth. Key types:
 | `diff` | Unified diff generation | v7 |
 | `clipboardy` | Clipboard access | v4, ESM-only |
 | `p-limit` | Concurrency control for API calls | v6 |
+| `chokidar` | File watching for `codeferry watch` | v4 (Node ≥14); do NOT upgrade to v5 — requires Node ≥20 |
 | `@anthropic-ai/sdk` | Claude API client | Keep up to date for model names |
 
 All ESM-only packages require `"type": "module"` in package.json (already set).

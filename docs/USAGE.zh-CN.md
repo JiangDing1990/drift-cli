@@ -1148,7 +1148,39 @@ codeferry snapshot --component "extras.jsx::AccountPage"
 
 ---
 
-## 21. FAQ
+## 21. 持续监听 — `codeferry watch`
+
+`codeferry watch` 在后台持续监听设计稿与代码目录，文件发生变更时自动打印简洁的漂移状态行。
+
+```bash
+codeferry watch                  # 以默认 800ms 防抖启动监听
+codeferry watch --debounce 1500  # 对大型项目使用更长的防抖延迟
+codeferry watch -w mobile-app    # 监听指定工作区
+```
+
+启动时 codeferry 会先执行一次完整扫描，确保初始显示状态来自真实文件系统，而非可能已过期的缓存 registry。之后每次文件变更都会触发重新扫描（带防抖），结果实时显示：
+
+```
+  codeferry watch — design ↔ code
+  监听中：/path/to/design  ·  /path/to/code
+  防抖：800ms  ·  按 Ctrl+C 退出
+
+  14:23:01  ✔ synced 42
+  14:31:44  ◐ design-ahead 1  (42 synced)
+           ◐  Button                    button.jsx → src/components/Button.tsx
+```
+
+**关键行为：**
+
+- **并发安全：** 每次扫描前都从磁盘重新加载 registry 和快照，因此其他终端执行的 `codeferry snapshot --after-sync` 或 `codeferry map set` 写入的新状态不会被覆盖。
+- **不丢事件：** 扫描进行中收到的新文件事件不会被丢弃，而是在当前扫描结束后自动补跑一次。
+- **不调用 AI：** watch 模式始终跳过 AI 分析，保持高速且零 API 消耗。
+
+按 **Ctrl+C** 可干净退出监听。
+
+---
+
+## 22. FAQ
 
 **Q：codeferry 会直接修改我的代码文件吗？**  
 A：不会。codeferry 只生成 Markdown 格式的 Prompt 文件。所有代码修改都由你将 Prompt 粘贴给 Claude Code 或 Claude Design 后，由 AI 完成。codeferry 是一个「Prompt 工厂」，不会触碰你的源代码。
@@ -1196,19 +1228,23 @@ A：`npm update -g codeferry` 或 `pnpm update -g codeferry`。
 A：不会。codeferry 先比对文件级 hash 做快速过滤，只对文件内容确实发生变化的重新提取组件 hash。即使 Claude Design 重写了 20 个 JSX 文件，`codeferry diff` 也只会报告内容真正变化的组件，不会产生误报。
 
 **Q：能在 CI 中使用 codeferry 吗？**  
-A：可以，适合用于漂移检测（不适合执行同步）。推荐使用 `--format json` 获取机器可读的结构化输出：
+A：可以，适合用于漂移检测（不适合执行同步）。推荐使用 `--ci` 门控模式——输出 JSON 并在检测到可操作漂移时以退出码 1 终止：
 
 ```bash
-# 结构化 JSON 输出，方便 CI 脚本解析
-codeferry diff --no-ai --format json | jq '.summary'
+# CI 门控 — 存在设计 ↔ 代码漂移时退出码为 1
+codeferry diff --ci
+```
 
-# 示例：检测到漂移时让构建失败
-SUMMARY=$(codeferry diff --no-ai --format json | jq '.summary')
-DRIFT=$(echo "$SUMMARY" | jq '.designAhead + .codeAhead + .conflicts')
-if [ "$DRIFT" -gt 0 ]; then
-  echo "检测到漂移（${DRIFT} 个组件需要同步），请运行 codeferry sync 进行处理。"
-  exit 1
-fi
+`--ci` 隐含 `--format json` 和 `--no-ai`（无 spinner、无 API 调用）。退出码：
+- **0** — 全部同步，无可操作变更
+- **1** — 检测到漂移（design-ahead、code-ahead、conflicts 或 never-synced）
+
+项目提供了开箱即用的 GitHub Actions 工作流模板，详见 [`templates/codeferry-diff.yml`](../templates/codeferry-diff.yml)。它会在每个 PR 上运行 `codeferry diff --ci`，发布摘要评论，并在检测到漂移时标记检查失败。
+
+也可以直接用 `--format json` 进行自定义脚本集成：
+
+```bash
+codeferry diff --no-ai --format json | jq '.summary'
 ```
 
 JSON 输出结构：
@@ -1237,8 +1273,6 @@ JSON 输出结构：
   ]
 }
 ```
-
-> `--ci`（漂移时非零退出码）计划在 v0.8.0 中提供。目前请使用上述 `jq` 脚本方式。
 
 **Q：如果我的 API Key 被消耗完了会怎样？**  
 A：codeferry 会自动降级为无 AI 模式。你会看到提示：`未设置 ANTHROPIC_API_KEY 或 API 调用失败，跳过 AI 分析（使用通用指引）`。其余功能完全正常。

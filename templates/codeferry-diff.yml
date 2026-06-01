@@ -1,0 +1,140 @@
+# codeferry Drift Check — GitHub Actions workflow template
+#
+# Copy this file to your project's .github/workflows/ directory.
+# It runs `codeferry diff --ci` on every PR and posts a summary comment.
+#
+# Prerequisites:
+#   1. codeferry is initialized in the repo (.codeferry/ committed with config + registry)
+#   2. Design files are accessible in the repo (or mounted via a prior step)
+#
+# Customize the paths in `on.pull_request.paths` to match your project layout.
+
+name: codeferry Drift Check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'design/**'
+      - '.codeferry/**'
+
+jobs:
+  drift-check:
+    name: Design ↔ Code Sync Check
+    runs-on: ubuntu-latest
+
+    # issues: write is needed to post PR comments.
+    # On fork PRs the token may be read-only; the comment step handles that gracefully.
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install codeferry
+        run: npm install -g codeferry
+
+      - name: Run drift check
+        id: diff
+        run: |
+          OUTPUT=$(codeferry diff --ci 2>&1) || EXIT_CODE=$?
+          echo "$OUTPUT"
+
+          # Save JSON output for the comment step
+          echo "$OUTPUT" > /tmp/codeferry-diff.json
+
+          # Expose exit code — 0 = synced, 1 = drift detected
+          echo "exit_code=${EXIT_CODE:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Post PR comment
+        if: always()
+        continue-on-error: true   # comment posting is best-effort; never fail the job
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const exitCode = '${{ steps.diff.outputs.exit_code }}';
+
+            let body;
+            try {
+              const raw = fs.readFileSync('/tmp/codeferry-diff.json', 'utf8');
+              const data = JSON.parse(raw);
+              const s = data.summary;
+              // Include neverSynced — --ci exits 1 for these too
+              const total = s.designAhead + s.codeAhead + s.conflicts + s.neverSynced;
+
+              if (total === 0) {
+                body = '### ✅ codeferry — All synced\n\nNo design ↔ code drift detected.';
+              } else {
+                const lines = ['### ⚠️ codeferry — Drift detected\n'];
+                lines.push(`| Status | Count |`);
+                lines.push(`|--------|-------|`);
+                if (s.designAhead > 0) lines.push(`| Design ahead | ${s.designAhead} |`);
+                if (s.codeAhead > 0)   lines.push(`| Code ahead | ${s.codeAhead} |`);
+                if (s.conflicts > 0)   lines.push(`| Conflicts | ${s.conflicts} |`);
+                if (s.neverSynced > 0) lines.push(`| Never synced | ${s.neverSynced} |`);
+                lines.push('');
+                lines.push('Run `codeferry sync` locally to resolve.');
+
+                if (data.components.length > 0) {
+                  lines.push('');
+                  lines.push('<details><summary>Affected components</summary>\n');
+                  for (const c of data.components) {
+                    lines.push(`- **${c.name}** (${c.status}): \`${c.designFile}\` → \`${c.codeFiles.join(', ')}\``);
+                  }
+                  lines.push('\n</details>');
+                }
+
+                body = lines.join('\n');
+              }
+            } catch {
+              body = exitCode !== '0'
+                ? '### ❌ codeferry — Check failed\n\nCould not parse diff output. Check the workflow logs.'
+                : '### ✅ codeferry — All synced';
+            }
+
+            // Upsert: update existing comment or create new one
+            try {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              const marker = '### ✅ codeferry';
+              const marker2 = '### ⚠️ codeferry';
+              const marker3 = '### ❌ codeferry';
+              const existing = comments.find(c =>
+                c.body.startsWith(marker) || c.body.startsWith(marker2) || c.body.startsWith(marker3)
+              );
+
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body,
+                });
+              }
+            } catch (e) {
+              // Read-only token (fork PR) or other permission issue — skip silently
+              console.log(`Comment posting skipped: ${e.message}`);
+            }
+
+      - name: Fail if drift detected
+        if: steps.diff.outputs.exit_code != '0'
+        run: |
+          echo "::error::Design ↔ code drift detected. Run 'codeferry sync' to resolve."
+          exit 1

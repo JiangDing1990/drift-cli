@@ -1,6 +1,6 @@
 {
   "name": "codeferry",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "CLI tool for bidirectional sync between Claude Design and Claude Code projects",
   "type": "module",
   "bin": {
@@ -48,6 +48,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "chalk": "^5.4.1",
+    "chokidar": "^4.0.3",
     "cli-table3": "^0.6.5",
     "clipboardy": "^4.0.0",
     "commander": "^13.1.0",

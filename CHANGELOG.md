@@ -6,6 +6,23 @@
 
 ---
 
+## [0.8.0] — 2026-06-01
+
+### 新增
+- **`codeferry diff --ci`**：CI 门控模式。隐含 `--format json` 与 `--no-ai`，存在可操作变更（design-ahead、code-ahead、conflicts、never-synced）时退出码为 1，全部同步时退出码为 0；使用 `process.exitCode` 赋值后正常返回，确保大 JSON 输出在进程退出前完整刷新
+- **GitHub Actions workflow 模板**（`templates/codeferry-diff.yml`）：在 PR 上自动运行 `codeferry diff --ci`，发布或更新同步状态评论，漂移时标记 check 失败；已处理 fork PR 的只读 token 场景（`continue-on-error: true` + try/catch），并声明 `permissions: pull-requests: write`
+- **`codeferry watch`**：持续监听设计稿与代码目录，文件变更后防抖触发扫描并实时显示漂移状态
+  - 启动时先做一次完整扫描（`refreshHashes`），初始状态来自真实文件系统而非缓存 registry
+  - 每次扫描前从磁盘重新加载 registry 与快照，避免覆盖 `snapshot --after-sync` 等并发操作写入的新基线
+  - 引入 `dirty` 标志：扫描进行中收到的新文件事件不丢弃，扫描结束后自动补跑一次
+  - `--debounce <ms>`：可调防抖延迟（默认 800ms）
+  - Ctrl+C / SIGTERM 干净退出
+
+### 依赖
+- 新增 `chokidar@^4.0.3`（Node ≥ 14.16，与 package.json `engines.node >=18.0.0` 兼容）
+
+---
+
 ## [0.7.0] — 2026-06-01
 
 ### 新增

@@ -6,6 +6,7 @@ import { diffCommand } from './commands/diff.js';
 import { syncCommand } from './commands/sync.js';
 import { snapshotCommand } from './commands/snapshot.js';
 import { logCommand } from './commands/log.js';
+import { watchCommand } from './commands/watch.js';
 import {
   workspaceListCommand,
   workspaceCurrentCommand,
@@ -20,7 +21,7 @@ const program = new Command();
 program
   .name('codeferry')
   .description('CLI tool for bidirectional sync between Claude Design and Claude Code')
-  .version('0.7.0')
+  .version('0.8.0')
   .option('-w, --workspace <name>', '指定工作区（覆盖 state.json 中的当前工作区）');
 
 // ── codeferry init ───────────────────────────────────────────────────────────────
@@ -155,6 +156,7 @@ program
   .option('--side <side>', '仅检测指定侧变更：design | code')
   .option('--component <name>', '仅检测指定组件')
   .option('--format <format>', '输出格式：text（默认彩色终端）或 json（机器可读，适合 CI）', 'text')
+  .option('--ci', 'CI 门控模式：输出 JSON，存在可操作变更时退出码为 1')
   .action(async (opts) => {
     const globalOpts = program.opts();
     if (opts.side && !['design', 'code'].includes(opts.side)) {
@@ -171,6 +173,7 @@ program
         side: opts.side as 'design' | 'code' | undefined,
         component: opts.component,
         format: opts.format as 'text' | 'json',
+        ci: opts.ci,
         workspace: globalOpts.workspace,
       });
     } catch (err) {
@@ -253,6 +256,25 @@ program
         component: opts.component,
         last: opts.last,
         status: opts.status,
+        workspace: globalOpts.workspace,
+      });
+    } catch (err) {
+      console.error('Error:', err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  });
+
+// ── codeferry watch ──────────────────────────────────────────────────────────────
+
+program
+  .command('watch')
+  .description('持续监听设计稿与代码目录，文件变更时自动显示漂移状态')
+  .option('--debounce <ms>', '文件变更后延迟触发扫描的毫秒数（默认 800）', (v) => parseInt(v, 10))
+  .action(async (opts) => {
+    const globalOpts = program.opts();
+    try {
+      await watchCommand({
+        debounce: opts.debounce,
         workspace: globalOpts.workspace,
       });
     } catch (err) {

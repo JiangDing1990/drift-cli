@@ -32,9 +32,9 @@ All phases are fully implemented and tested (115 unit tests, 0 TypeScript errors
 **Goal:** Meet developers where they already work.
 
 - [ ] VS Code extension — status bar indicator, right-click context menu for `codeferry sync`
-- [ ] GitHub Actions workflow template — run `codeferry diff` in CI and post a comment with sync status
-- [ ] `codeferry diff --ci` — exits with non-zero status when actionable changes are detected (for CI gates)
-- [ ] Watch mode — `drift watch` for continuous background monitoring
+- [x] GitHub Actions workflow template — run `codeferry diff` in CI and post a comment with sync status
+- [x] `codeferry diff --ci` — exits with non-zero status when actionable changes are detected (for CI gates)
+- [x] Watch mode — `codeferry watch` for continuous background monitoring
 
 ---
 
@@ -46,7 +46,7 @@ All phases are fully implemented and tested (115 unit tests, 0 TypeScript errors
 - [ ] End-to-end integration tests using fixture design + code directories
 - [ ] Plugin API for custom mapping strategies
 - [ ] Full documentation site (VitePress or Docusaurus)
-- [ ] `drift migrate` — migrate `.drift/` state between codeferry major versions
+- [ ] `codeferry migrate` — migrate `.codeferry/` state between codeferry major versions
 
 ---
 

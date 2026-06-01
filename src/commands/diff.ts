@@ -27,6 +27,7 @@ interface DiffOptions {
   side?: 'design' | 'code';
   component?: string;
   format?: 'text' | 'json';
+  ci?: boolean;
   workspace?: string;
 }
 
@@ -125,7 +126,9 @@ function makeQueueId(componentId: string): string {
 // ── Main command ─────────────────────────────────────────────────────────────
 
 export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
-  const isJson = opts.format === 'json';
+  const isCi = opts.ci ?? false;
+  const isJson = isCi || opts.format === 'json';
+  const noAi = isCi || isJson || (opts.noAi ?? false);
   const { store } = await resolveStore(opts.workspace);
 
   const [config, registry, snapshot, queue] = await Promise.all([
@@ -211,6 +214,7 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   if (candidates.length === 0) {
     if (isJson) {
       process.stdout.write(JSON.stringify({ summary, components: [] }, null, 2) + '\n');
+      if (isCi) { process.exitCode = 0; return; }
     } else {
       console.log(`  ${chalk.green('✔')} 无变更，所有已映射组件均已同步`);
       console.log();
@@ -237,7 +241,7 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   // Step 6: AI analysis (unless --no-ai or json mode)
   const analysisMap = new Map<string, AIAnalysisResult>();
 
-  if (!opts.noAi && !isJson) {
+  if (!noAi) {
     const apiKey = process.env['ANTHROPIC_API_KEY'];
     if (apiKey) {
       const aiSpinner = spinner(`正在对 ${candidates.length} 个变更组件进行 AI 语义分析...`);
@@ -407,6 +411,7 @@ export async function diffCommand(opts: DiffOptions = {}): Promise<void> {
   if (isJson) {
     const output: DiffJsonOutput = { summary, components: jsonComponents };
     process.stdout.write(JSON.stringify(output, null, 2) + '\n');
+    if (isCi) { process.exitCode = jsonComponents.length > 0 ? 1 : 0; return; }
     return;
   }
 

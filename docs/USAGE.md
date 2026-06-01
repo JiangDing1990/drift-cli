@@ -1121,7 +1121,39 @@ codeferry snapshot --component "extras.jsx::AccountPage"
 
 ---
 
-## 21. FAQ
+## 21. Continuous Monitoring — `codeferry watch`
+
+`codeferry watch` monitors both design and code directories in the background and prints a compact drift status line whenever files change.
+
+```bash
+codeferry watch                  # Start watching with default 800ms debounce
+codeferry watch --debounce 1500  # Slower debounce for large projects
+codeferry watch -w mobile-app    # Watch a specific workspace
+```
+
+On startup, codeferry runs an initial full scan so the displayed status reflects the real filesystem — not a potentially stale stored registry. After that, each file change event triggers a rescan (debounced), and the result is shown inline:
+
+```
+  codeferry watch — design ↔ code
+  监听中：/path/to/design  ·  /path/to/code
+  防抖：800ms  ·  按 Ctrl+C 退出
+
+  14:23:01  ✔ synced 42
+  14:31:44  ◐ design-ahead 1  (42 synced)
+           ◐  Button                    button.jsx → src/components/Button.tsx
+```
+
+**Key behaviours:**
+
+- **Concurrent command safety:** registry and snapshot are reloaded from disk before each scan, so state written by `codeferry snapshot --after-sync` or `codeferry map set` in another terminal is never overwritten.
+- **No dropped events:** if a file changes while a scan is already running, the event is queued and a follow-up scan runs automatically once the active scan finishes.
+- **No AI calls:** watch mode always skips AI analysis to stay fast and free.
+
+Press **Ctrl+C** to stop watching cleanly.
+
+---
+
+## 22. FAQ
 
 **Q: Does codeferry modify my code files directly?**  
 A: No. codeferry only generates Markdown prompt files. All actual code changes are performed by Claude Code or Claude Design when you paste the prompt. codeferry is a "prompt factory" — it never touches your source code.
@@ -1169,19 +1201,23 @@ A: `npm update -g codeferry` or `pnpm update -g codeferry`.
 A: codeferry detects file-level hash changes first (fast path), then re-extracts only the components that actually changed. Even if Claude Design rewrites 20 JSX files, only the components with genuine content changes will appear in `codeferry diff` output. This avoids false positives from Claude Design's full-directory export.
 
 **Q: Can I run codeferry in CI?**  
-A: Yes, for drift detection (not sync). Use `--format json` for reliable machine-readable output:
+A: Yes, for drift detection (not sync). Use `--ci` for CI gate mode — it outputs JSON and exits with code 1 when actionable drift is detected:
 
 ```bash
-# Structured JSON output — easy to parse in CI scripts
-codeferry diff --no-ai --format json | jq '.summary'
+# CI gate — exits 1 if any design ↔ code drift exists
+codeferry diff --ci
+```
 
-# Example: fail the build if any actionable drift is detected
-SUMMARY=$(codeferry diff --no-ai --format json | jq '.summary')
-DRIFT=$(echo "$SUMMARY" | jq '.designAhead + .codeAhead + .conflicts')
-if [ "$DRIFT" -gt 0 ]; then
-  echo "Drift detected ($DRIFT component(s) need syncing). Run codeferry sync to resolve."
-  exit 1
-fi
+`--ci` implies `--format json` and `--no-ai` (no spinners, no API calls). Exit codes:
+- **0** — all synced, no actionable changes
+- **1** — drift detected (design-ahead, code-ahead, conflicts, or never-synced)
+
+For a ready-to-use GitHub Actions workflow, see [`templates/codeferry-diff.yml`](../templates/codeferry-diff.yml). It runs `codeferry diff --ci` on every PR, posts a summary comment, and fails the check if drift is found.
+
+You can also use `--format json` directly for custom scripting:
+
+```bash
+codeferry diff --no-ai --format json | jq '.summary'
 ```
 
 JSON output shape:
@@ -1210,8 +1246,6 @@ JSON output shape:
   ]
 }
 ```
-
-> `--ci` (non-zero exit on drift) is planned for v0.8.0. For now use the `jq` pattern above.
 
 ---
 

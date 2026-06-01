@@ -188,6 +188,8 @@ Options:
   --no-ai             跳过 AI 分析（无需 API Key）
   --side <side>       仅检测某侧：design | code
   --component <name>  仅检测指定组件
+  --format <fmt>      输出格式：text（默认）| json（机器可读）
+  --ci                CI 门控模式：JSON 输出，存在可操作漂移时退出码为 1
 ```
 
 > **AI 分析** 需要设置环境变量 `ANTHROPIC_API_KEY`。未设置时自动降级为纯结构 diff。
@@ -251,6 +253,20 @@ codeferry status -w mobile-app
 
 # CI 中通过环境变量指定工作区
 CODEFERRY_WORKSPACE=mobile-app codeferry diff --no-ai
+```
+
+### `codeferry watch`
+
+持续监听设计稿与代码目录，文件变更时自动打印漂移状态。
+
+```
+Options:
+  --debounce <ms>   文件变更后延迟触发扫描的毫秒数（默认 800）
+```
+
+```bash
+codeferry watch                  # 启动监听
+codeferry watch --debounce 1500  # 大型项目使用更长防抖
 ```
 
 ---

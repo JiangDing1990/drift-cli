@@ -188,6 +188,8 @@ Options:
   --no-ai             Skip AI analysis (no API key needed)
   --side <side>       Only scan one side: design | code
   --component <name>  Only scan a specific component
+  --format <fmt>      Output format: text (default) | json (machine-readable)
+  --ci                CI gate mode: JSON output, exits 1 when actionable drift exists
 ```
 
 > **AI analysis** requires the `ANTHROPIC_API_KEY` environment variable. Without it, the tool gracefully falls back to structural diff only.
@@ -251,6 +253,20 @@ codeferry status -w mobile-app
 
 # CI: set workspace via environment variable
 CODEFERRY_WORKSPACE=mobile-app codeferry diff --no-ai
+```
+
+### `codeferry watch`
+
+Continuously monitor both directories and print a live drift status line whenever files change.
+
+```
+Options:
+  --debounce <ms>   Delay after last file change before scanning (default: 800)
+```
+
+```bash
+codeferry watch                  # Start watching
+codeferry watch --debounce 1500  # Slower debounce for large projects
 ```
 
 ---
